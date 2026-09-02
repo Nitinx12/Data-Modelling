@@ -28,7 +28,7 @@ BEGIN
         FROM pg_namespace
         WHERE nspname = 'core'
     ) THEN
-        CREATE SCHEMA warehouse;
+        CREATE SCHEMA core;
     END IF;
 
     -- Analytics: presentation/mart layer for reporting
