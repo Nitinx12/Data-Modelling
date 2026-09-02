@@ -17,6 +17,9 @@ Usage:
 
     # Quiet terminal, full detail in the log file:
     log = get_logger("incremental_loader", console_level=logging.WARNING)
+
+    # Nest under a subfolder, e.g. logs/staging/staging_2026-09-02.log:
+    log = get_logger("staging", subdir="staging")
 """
 
 import logging
@@ -32,9 +35,13 @@ DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
 def get_logger(
-    name: str = "app", level: int = logging.INFO, console_level: int | None = None
+    name: str = "app",
+    level: int = logging.INFO,
+    console_level: int | None = None,
+    subdir: str | None = None,
 ) -> logging.Logger:
-    os.makedirs(LOG_DIR, exist_ok=True)
+    log_dir = os.path.join(LOG_DIR, subdir) if subdir else LOG_DIR
+    os.makedirs(log_dir, exist_ok=True)
 
     logger = logging.getLogger(name)
 
@@ -42,8 +49,6 @@ def get_logger(
     if logger.handlers:
         return logger
 
-    # The logger itself stays permissive; each handler filters independently
-    # so console and file can show different levels of detail.
     logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter(LOG_FORMAT, datefmt=DATE_FORMAT)
 
@@ -53,12 +58,9 @@ def get_logger(
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
 
-    # File handler: one file per day, rotated further if it grows past 5MB.
-    # Uses local time (via astimezone) so the file rolls over on the local
-    # calendar day, same as before, while still satisfying DTZ005.
     log_filename = f"{name}_{datetime.now().astimezone().strftime('%Y-%m-%d')}.log"
     file_handler = RotatingFileHandler(
-        os.path.join(LOG_DIR, log_filename),
+        os.path.join(log_dir, log_filename),
         maxBytes=5 * 1024 * 1024,  # 5 MB
         backupCount=5,
         encoding="utf-8",
