@@ -1,5 +1,4 @@
 import os
-import warnings
 
 from dotenv import load_dotenv
 
@@ -68,35 +67,3 @@ _missing = [k for k, v in _required.items() if not v]
 
 if _missing:
     raise OSError(f"Missing required environment variables: {', '.join(_missing)}")
-
-_optional = {
-    "POSTGRES_SCHEMA_BRONZE": POSTGRES_SCHEMA_BRONZE,
-    "POSTGRES_SCHEMA_SILVER": POSTGRES_SCHEMA_SILVER,
-    "POSTGRES_SCHEMA_GOLD": POSTGRES_SCHEMA_GOLD,
-}
-
-_missing_optional = [k for k, v in _optional.items() if not v]
-
-if _missing_optional:
-    warnings.warn(
-        "Not set (only needed if you use the bronze/silver/gold schemas): "
-        f"{', '.join(_missing_optional)}",
-        stacklevel=2,
-    )
-
-_optional_databricks = {
-    "DATABRICKS_HOST": DATABRICKS_HOST,
-    "DATABRICKS_HTTP_PATH": DATABRICKS_HTTP_PATH,
-    "DATABRICKS_TOKEN": DATABRICKS_TOKEN,
-    "DATABRICKS_CATALOG": DATABRICKS_CATALOG,
-    "DATABRICKS_SCHEMA": DATABRICKS_SCHEMA,
-}
-
-_missing_databricks = [k for k, v in _optional_databricks.items() if not v]
-
-if _missing_databricks:
-    warnings.warn(
-        "Not set (only needed if you connect to Databricks): "
-        f"{', '.join(_missing_databricks)}",
-        stacklevel=2,
-    )
