@@ -1,0 +1,78 @@
+.PHONY: help install sync format lint check test \
+        db-init db-reset pipeline clean
+
+# -------------------------
+# Help
+# -------------------------
+
+help:
+	@echo "Available commands:"
+	@echo ""
+	@echo "  make install    Install project dependencies"
+	@echo "  make sync       Sync dependencies using uv"
+	@echo "  make format     Format Python code"
+	@echo "  make lint       Run Ruff linting"
+	@echo "  make check      Run formatting + lint checks"
+	@echo "  make test       Run tests"
+	@echo ""
+	@echo "  make db-init    Initialize database"
+	@echo "  make db-reset   Reset database"
+	@echo "  make pipeline   Run data pipeline"
+	@echo ""
+	@echo "  make clean      Remove generated files"
+
+# -------------------------
+# Python / Dependencies
+# -------------------------
+
+install:
+	uv sync
+
+sync:
+	uv sync
+
+# -------------------------
+# Code Quality
+# -------------------------
+
+format:
+	uv run ruff format .
+
+lint:
+	uv run ruff check .
+
+check:
+	uv run ruff format --check .
+	uv run ruff check .
+
+# -------------------------
+# Testing
+# -------------------------
+
+test:
+	uv run pytest
+
+# -------------------------
+# Database
+# -------------------------
+
+db-init:
+	uv run python scripts/init_database.py
+
+db-reset:
+	uv run python scripts/reset_database.py
+
+# -------------------------
+# Pipeline
+# -------------------------
+
+pipeline:
+	uv run python scripts/run_pipeline.py
+
+# -------------------------
+# Cleanup
+# -------------------------
+
+clean:
+	uv run python -c "import shutil; shutil.rmtree('.ruff_cache', ignore_errors=True)"
+	uv run python -c "import shutil; shutil.rmtree('__pycache__', ignore_errors=True)"
