@@ -59,7 +59,9 @@ def _find_project_root(marker: str = "pyproject.toml") -> Path:
     for parent in [path, *path.parents]:
         if (parent / marker).exists():
             return parent
-    raise RuntimeError(f"Could not locate project root (no {marker} found above {path})")
+    raise RuntimeError(
+        f"Could not locate project root (no {marker} found above {path})"
+    )
 
 
 sys.path.insert(0, str(_find_project_root()))
@@ -170,7 +172,9 @@ def create_table(cur, table: str, df: pl.DataFrame):
         pg_type = PG_TYPE_MAP.get(dtype, "TEXT")
         cols_sql.append(sql.SQL("{} {}").format(sql.Identifier(name), sql.SQL(pg_type)))
 
-    stmt = sql.SQL("CREATE TABLE {schema}.{table} ({cols}, PRIMARY KEY ({key}))").format(
+    stmt = sql.SQL(
+        "CREATE TABLE {schema}.{table} ({cols}, PRIMARY KEY ({key}))"
+    ).format(
         schema=sql.Identifier(PG_SCHEMA),
         table=sql.Identifier(table),
         cols=sql.SQL(", ").join(cols_sql),
@@ -229,7 +233,9 @@ def run_load(cur, collection: str) -> dict:
     watermark = get_watermark(cur, table) if watermark_eligible else None
 
     if exists and not watermark_eligible:
-        log.warning(f"[{collection}] no '{WATERMARK_COL}' column on target - doing a full refresh")
+        log.warning(
+            f"[{collection}] no '{WATERMARK_COL}' column on target - doing a full refresh"
+        )
 
     df = extract_from_mongo(collection, watermark)
     rows_extracted = df.height
@@ -248,11 +254,17 @@ def run_load(cur, collection: str) -> dict:
             mode = "incremental (no new/updated rows)"
         else:
             load_incremental(cur, table, df)
-            mode = "incremental (upsert)" if watermark_eligible else "full refresh (upsert)"
+            mode = (
+                "incremental (upsert)"
+                if watermark_eligible
+                else "full refresh (upsert)"
+            )
             rows_loaded = rows_extracted
 
     new_watermark = (
-        df[WATERMARK_COL].max() if (not df.is_empty() and WATERMARK_COL in df.schema) else watermark
+        df[WATERMARK_COL].max()
+        if (not df.is_empty() and WATERMARK_COL in df.schema)
+        else watermark
     )
     elapsed = time.time() - start
 
@@ -302,7 +314,9 @@ def main():
             "POSTGRES_SCHEMA_STAGING (or POSTGRES_SCHEMA_BRONZE) in your .env "
             "before running this script."
         )
-        log.error("No target schema configured (POSTGRES_SCHEMA_STAGING / POSTGRES_SCHEMA_BRONZE unset)")
+        log.error(
+            "No target schema configured (POSTGRES_SCHEMA_STAGING / POSTGRES_SCHEMA_BRONZE unset)"
+        )
         sys.exit(1)
 
     engine = get_postgres_engine()
@@ -314,8 +328,12 @@ def main():
     else:
         db = get_mongo_db()
         collections = sorted(db.list_collection_names())
-        console.print(f"No --collection given - running all [bold]{len(collections)}[/bold] collection(s)")
-        log.info(f"No --collection given - running all {len(collections)} collection(s): {collections}")
+        console.print(
+            f"No --collection given - running all [bold]{len(collections)}[/bold] collection(s)"
+        )
+        log.info(
+            f"No --collection given - running all {len(collections)} collection(s): {collections}"
+        )
 
     overall_start = time.time()
     results = []
@@ -326,7 +344,9 @@ def main():
         TimeElapsedColumn(),
         console=console,
     ) as progress:
-        task = progress.add_task(f"Loading {len(collections)} collection(s)...", total=len(collections))
+        task = progress.add_task(
+            f"Loading {len(collections)} collection(s)...", total=len(collections)
+        )
 
         for name in collections:
             progress.update(task, description=f"Loading [bold]{name}[/bold]...")
@@ -335,7 +355,9 @@ def main():
                 raw_conn.commit()
             except Exception as exc:
                 raw_conn.rollback()
-                log.exception(f"[{name}] load failed; rolled back, continuing with next collection")
+                log.exception(
+                    f"[{name}] load failed; rolled back, continuing with next collection"
+                )
                 result = {
                     "collection": name,
                     "table": name,
