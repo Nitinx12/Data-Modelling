@@ -1,0 +1,31 @@
+[project]
+name = "data-modelling"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Nitin", email = "nitin321x@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "matplotlib>=3.11.1",
+    "pandas>=3.0.5",
+    "plotly>=7.0.0",
+    "polors>=0.2.4",
+    "psycopg2-binary>=2.9.12",
+    "python-dotenv>=1.2.3",
+    "rich>=15.0.0",
+    "seaborn>=0.13.2",
+    "sqlalchemy>=2.0.52",
+]
+
+[project.scripts]
+data-modelling = "data_modelling:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+
+[tool.uv]
+package = false
