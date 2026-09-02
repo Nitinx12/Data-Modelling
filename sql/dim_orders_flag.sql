@@ -14,11 +14,12 @@ CREATE SCHEMA IF NOT EXISTS core;
 -- =====================================================================
 CREATE TABLE IF NOT EXISTS core.dim_orders_flag (
     flag_key        BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    channel_code    BIGINT,
     channel_name    VARCHAR(100),
     status          VARCHAR(50),
     priority        VARCHAR(50),
     dw_created_at   TIMESTAMP  NOT NULL DEFAULT now(),
-    CONSTRAINT uq_dim_orders_flag UNIQUE (channel_name, status, priority)
+    CONSTRAINT uq_dim_orders_flag UNIQUE (channel_code, status, priority)
 );
 
 COMMENT ON TABLE core.dim_orders_flag IS 'Junk dimension: distinct combinations of order channel, status, and priority.';
@@ -53,8 +54,9 @@ duplicate_check AS(
         ) AS rnk
     FROM append_queries
 )
-INSERT INTO core.dim_orders_flag (channel_name, status, priority)
+INSERT INTO core.dim_orders_flag (channel_code, channel_name, status, priority)
 SELECT
+    D."OrderChannel",
     C.channel_name,
     D."Status",
     D."Priority"
@@ -62,7 +64,7 @@ FROM duplicate_check AS D
 LEFT JOIN staging.channels AS C
     ON D."OrderChannel" = C.channel_id
 WHERE D.rnk = 1
-ON CONFLICT (channel_name, status, priority) DO NOTHING;
+ON CONFLICT (channel_code, status, priority) DO NOTHING;
 
 
 -- =====================================================================
