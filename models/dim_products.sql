@@ -33,6 +33,11 @@ CREATE INDEX IF NOT EXISTS ix_dim_products_category ON core.dim_products (catego
 -- =====================================================================
 -- 2. UPSERT — core.dim_products
 -- =====================================================================
+-- placeholder for products referenced by facts but missing from the source catalog (e.g. retired SKUs)
+INSERT INTO core.dim_products (product_code, product_name, category)
+VALUES ('UNKNOWN', 'Unknown / Retired Product', 'Unknown')
+ON CONFLICT (product_code) DO NOTHING;
+
 WITH merge_queries AS (
     SELECT
         P."ProductCode",
@@ -46,16 +51,19 @@ WITH merge_queries AS (
     FROM staging.products AS P
     LEFT JOIN staging.subcategory AS S
         ON P."SubcategoryName" = INITCAP(S."subcategory")
+    -- drop known placeholder/test rows (e.g. ZZZ-000 "DO NOT USE")
+    WHERE P."ProductCode" NOT ILIKE 'ZZZ%'
+      AND P."ProductName" NOT ILIKE 'DO NOT USE%'
 ),
 duplicate_check AS (
+    -- no price filter here: every product must get a key, bad price just means NULL price below
     SELECT
         *,
         ROW_NUMBER() OVER (
             PARTITION BY "ProductCode"
-            ORDER BY "update_at" DESC
+            ORDER BY "update_at" DESC NULLS LAST
         ) AS rnk
     FROM merge_queries
-    WHERE "UnitPrice" IS NOT NULL AND "UnitPrice" > 0
 ),
 final_products AS (
     SELECT *
@@ -78,7 +86,10 @@ SELECT
     category,
     "SubcategoryName",
     "PrimarySupplier",
-    NULLIF("UnitPrice"::TEXT, '')::NUMERIC(14,2),
+    -- invalid price (blank/zero/negative) -> NULL, product row is kept either way
+    CASE WHEN NULLIF("UnitPrice"::TEXT, '')::NUMERIC(14,2) > 0
+         THEN NULLIF("UnitPrice"::TEXT, '')::NUMERIC(14,2)
+         ELSE NULL END,
     NULLIF("update_at", '')::TIMESTAMP
 FROM final_products
 ON CONFLICT (product_code) DO UPDATE SET
@@ -87,10 +98,15 @@ ON CONFLICT (product_code) DO UPDATE SET
     category            = EXCLUDED.category,
     subcategory_name    = EXCLUDED.subcategory_name,
     primary_supplier    = EXCLUDED.primary_supplier,
-    unit_price          = EXCLUDED.unit_price,
+    unit_price          = EXCLUDED.unit_price,  -- NULL if source price was invalid
     source_updated_at   = EXCLUDED.source_updated_at,
     dw_updated_at       = now()
 WHERE core.dim_products.source_updated_at IS DISTINCT FROM EXCLUDED.source_updated_at;
+
+-- cleanup: remove placeholder/test rows inserted before this filter existed
+DELETE FROM core.dim_products
+WHERE product_code ILIKE 'ZZZ%'
+   OR product_name ILIKE 'DO NOT USE%';
 
 
 -- =====================================================================

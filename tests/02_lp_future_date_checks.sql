@@ -21,6 +21,8 @@ BEGIN
             ON n.oid = c.relnamespace
         WHERE n.nspname IN ('core', 'staging')
           AND c.relkind IN ('r', 'p')
+          AND c.relname NOT LIKE '%\_rejects'
+          AND c.relname NOT LIKE '%\_rejected'
         ORDER BY
             n.nspname
             , c.relname

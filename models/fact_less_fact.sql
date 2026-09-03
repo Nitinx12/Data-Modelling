@@ -51,11 +51,15 @@ SELECT DISTINCT
     CS."CampaignName",
     CS."PromotedSKUs"
 FROM staging.campaing_sku AS CS
-LEFT JOIN core.dim_campaign AS DC
+JOIN core.dim_campaign AS DC
     ON CS."CampaignName" = DC.campaign_name
-LEFT JOIN core.dim_products AS P
+JOIN core.dim_products AS P
     ON CS."PromotedSKUs" = P.product_code
 ON CONFLICT (campaign_key, product_key) DO NOTHING;
+
+DELETE FROM core.fact_less_fact
+WHERE campaign_key IS NULL
+   OR product_key IS NULL;
 
 
 -- =====================================================================
