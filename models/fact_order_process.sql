@@ -48,24 +48,58 @@ CREATE INDEX IF NOT EXISTS ix_fact_order_process_customer ON core.fact_order_pro
 CREATE INDEX IF NOT EXISTS ix_fact_order_process_invoice  ON core.fact_order_process (invoice_id);
 CREATE INDEX IF NOT EXISTS ix_fact_order_process_order_dt ON core.fact_order_process (order_date);
 
+-- Quarantine table: orders whose OrderDate is impossible (in the future
+-- as of load time). Root cause lives upstream in whatever seeds
+-- staging.orders_2025/2026 — this table just stops that bad data from
+-- silently entering the fact table, and keeps a visible trail of it.
+CREATE TABLE IF NOT EXISTS core.fact_order_process_rejects (
+    order_id       VARCHAR(100) NOT NULL,
+    order_date     DATE,
+    reject_reason  VARCHAR(200) NOT NULL,
+    detected_at    TIMESTAMP NOT NULL DEFAULT now(),
+    CONSTRAINT uq_fact_order_process_rejects_order_id UNIQUE (order_id)
+);
+
 
 -- =====================================================================
--- 2. UPSERT — core.fact_order_process
+-- 2. STAGE + FLAG — split orders into valid vs. future-dated
+-- =====================================================================
+DROP TABLE IF EXISTS tmp_orders_flagged;
+CREATE TEMP TABLE tmp_orders_flagged AS
+SELECT
+    "OrderID",
+    "CustomerName",
+    "OrderDate",
+    (NULLIF("OrderDate", '')::DATE > CURRENT_DATE) AS is_future_dated
+FROM (
+    SELECT "OrderID", "CustomerName", "OrderDate" FROM staging.orders_2025
+    UNION ALL
+    SELECT "OrderID", "CustomerName", "OrderDate" FROM staging.orders_2026
+) AS u;
+
+INSERT INTO core.fact_order_process_rejects (order_id, order_date, reject_reason)
+SELECT
+    "OrderID",
+    NULLIF("OrderDate", '')::DATE,
+    'order_date is in the future as of load time'
+FROM tmp_orders_flagged
+WHERE is_future_dated
+ON CONFLICT (order_id) DO NOTHING;
+
+
+-- =====================================================================
+-- 3. UPSERT — core.fact_order_process (valid orders only)
 -- =====================================================================
 WITH orders_unioned AS (
     SELECT "OrderID", "CustomerName", "OrderDate"
-    FROM staging.orders_2025
-
-    UNION ALL
-
-    SELECT "OrderID", "CustomerName", "OrderDate"
-    FROM staging.orders_2026
+    FROM tmp_orders_flagged
+    WHERE NOT is_future_dated
 ),
 shipments_dedup AS (
     SELECT
         *,
         ROW_NUMBER() OVER (
-            PARTITION BY "OrderID" ORDER BY NULLIF("ShipDate", '')::DATE DESC
+            PARTITION BY "OrderID" ORDER BY NULLIF("ShipDate", '')::DATE DESC NULLS LAST
         ) AS rnk
     FROM staging.shipments
 ),
@@ -76,7 +110,7 @@ invoices_dedup AS (
     SELECT
         *,
         ROW_NUMBER() OVER (
-            PARTITION BY "OrderID" ORDER BY NULLIF("InvoiceDate", '')::DATE DESC
+            PARTITION BY "OrderID" ORDER BY NULLIF("InvoiceDate", '')::DATE DESC NULLS LAST
         ) AS rnk
     FROM staging.invoices
 ),
@@ -87,7 +121,7 @@ payments_dedup AS (
     SELECT
         *,
         ROW_NUMBER() OVER (
-            PARTITION BY "InvoiceID" ORDER BY NULLIF("PayDate", '')::DATE DESC
+            PARTITION BY "InvoiceID" ORDER BY NULLIF("PayDate", '')::DATE DESC NULLS LAST
         ) AS rnk
     FROM staging.payments
 ),
@@ -155,11 +189,15 @@ WHERE core.fact_order_process.ship_date     IS DISTINCT FROM EXCLUDED.ship_date
    OR core.fact_order_process.amount        IS DISTINCT FROM EXCLUDED.amount;
 
 
+DROP TABLE IF EXISTS tmp_orders_flagged;
+
+
 -- =====================================================================
--- 3. Verification
+-- 4. Verification
 -- =====================================================================
 -- SELECT COUNT(*) FROM core.fact_order_process;
 -- SELECT * FROM core.fact_order_process ORDER BY order_date LIMIT 20;
 -- SELECT COUNT(*) FROM core.fact_order_process WHERE customer_id IS NULL;   -- unmatched customers
 -- SELECT COUNT(*) FROM core.fact_order_process WHERE ship_date IS NULL;     -- not yet shipped
 -- SELECT COUNT(*) FROM core.fact_order_process WHERE pay_date  IS NULL;     -- not yet paid
+-- SELECT * FROM core.fact_order_process_rejects ORDER BY order_date DESC;   -- quarantined future-dated orders
