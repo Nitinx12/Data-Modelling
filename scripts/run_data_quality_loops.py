@@ -1,4 +1,7 @@
-"""Run the repository's read only PostgreSQL data quality SQL loops."""
+"""Run the repository's read only PostgreSQL data quality SQL loops.
+NOTE: This script is intended to be run from the repository root, e.g.
+     uv run scripts/run_data_quality_loops.py
+"""
 
 from __future__ import annotations
 
