@@ -31,8 +31,8 @@ MODELS_DIR = BASE_DIR / "models"  # change if your .sql files live elsewhere
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from utils.connection import get_postgres_engine  # noqa: E402
-from utils.logger import get_logger  # noqa: E402
+from utils.connection import get_postgres_engine
+from utils.logger import get_logger
 
 # Dependency order. Add new dims/facts here in the position they need to
 # run — e.g. dim_customers.sql / dim_geo.sql / dim_orders_flag.sql before
@@ -76,7 +76,7 @@ def run_model(engine, path: Path) -> ModelResult:
         duration = time.perf_counter() - start
         notices = [n.strip() for n in getattr(raw_conn, "notices", [])]
         return ModelResult(path.name, "PASS", duration, notices)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         raw_conn.rollback()
         duration = time.perf_counter() - start
         return ModelResult(path.name, "FAIL", duration, [], str(exc))

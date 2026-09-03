@@ -40,7 +40,6 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from utils.connection import get_postgres_engine
 from utils.logger import get_logger
 
-
 log = get_logger("data_quality", subdir="tests", console_level=logging.INFO)
 
 

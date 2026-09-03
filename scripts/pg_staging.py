@@ -49,7 +49,7 @@ import logging
 import os
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -70,8 +70,8 @@ import polars as pl
 from psycopg2 import sql
 from psycopg2.extras import execute_values
 from rich.console import Console
-from rich.progress import SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.progress import Progress as RichProgress
+from rich.progress import SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
 
 from utils import engine as config
@@ -415,7 +415,7 @@ def main():
     log.info(
         f"Run complete: {len(results)} collection(s), {len(failed)} failed, "
         f"{total_extracted} extracted, {total_loaded} loaded, {total_elapsed:.2f}s, "
-        f"run at (UTC) {datetime.now(timezone.utc).isoformat()}"
+        f"run at (UTC) {datetime.now(UTC).isoformat()}"
     )
 
     if failed:
