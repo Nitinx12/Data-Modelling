@@ -10,13 +10,17 @@ tables. The warehouse uses the `staging` schema for source-shaped data and the
 
 - `models/`: executable PostgreSQL dimension and fact load scripts. Run all
   dimensions before their dependent facts.
-- `tests/`: executable PostgreSQL data-quality SQL. Five focused dynamic `DO`
-  loops run after every warehouse load in numeric order.
+- `tests/unit/`: pytest unit tests for `utils/` modules (engine, connection, logger).
+- `tests/data_quality/`: executable PostgreSQL data-quality SQL. Five focused
+  dynamic `DO` loops run after every warehouse load in numeric order.
+- `gx/`: Great Expectations suite — YAML expectation suites and a runner script.
 - `sql/`: database and schema bootstrap scripts.
 - `scripts/`: ingestion and operational scripts.
 - `docs/`: data catalog, schema, and ERD. Update these when the warehouse
   grain, keys, or business rules change.
 - `utils/`: shared Python configuration, connections, and logging.
+- `main.py`: one-shot pipeline orchestrator — runs `pg_staging.py` →
+  `run_models.py` → `run_data_quality_loops.py` in sequence.
 
 ## SQL conventions
 
@@ -62,9 +66,9 @@ tables. The warehouse uses the `staging` schema for source-shaped data and the
 
 ## Data-quality checks
 
-- Run `tests/01_lp_...sql` through `tests/05_lp_...sql` after loading the
-  warehouse. Each uses a read-only `DO` loop over the `core` and `staging`
-  schemas and reports aggregate counts with `RAISE NOTICE`.
+- Run the five SQL loops in `tests/data_quality/` in numeric order after
+  loading the warehouse. Each uses a read-only `DO` loop over the `core` and
+  `staging` schemas and reports aggregate counts with `RAISE NOTICE`.
 - A non-zero reported count is a failed check; scripts should report counts,
   not sample business data.
 - Keep checks read-only against `staging` and `core`. Do not create a test,
@@ -129,7 +133,119 @@ or something else instead.
 - If a change alters warehouse grain, keys, or business rules, update the
   relevant file(s) in `docs/` in the same commit/PR.
 
-### Example workflow
+## Git workflow
+
+### Branch naming
+
+Prefix your branch with one scope matching the Conventional Commits types:
+
+```
+feat/models/     — new dimension or fact table
+feat/tests/      — new pytest suite or SQL loop
+feat/gx/         — new Great Expectations suite
+fix/models/      — bug in a model SQL file
+fix/tests/       — broken SQL loop or pytest test
+fix/scripts/     — bug in a scripts/ entry point
+refactor/        — restructuring models, tests, or scripts
+chore/           — tooling, CI, Makefile, deps
+docs/            — documentation only
+```
+
+### Pre-commit checklist
+
+Before pushing any branch:
+
+```bash
+# 1. Lint & format (fails the build if ruff finds issues)
+make lint
+make format-check
+
+# 2. Unit tests (pytest — no DB required)
+make test
+
+# 3. Data-quality loops (requires live Postgres with populated warehouse)
+make quality
+
+# 4. Run the full pipeline end-to-end (requires MongoDB + Postgres)
+make pipeline
+```
+
+All four steps should pass before opening a PR.
+
+### Handling push rejections
+
+If `git push` is rejected with `fetch first`, another branch (usually `main`)
+has new commits. **Always rebase** — never merge main into a feature branch:
+
+```bash
+git fetch origin
+git rebase origin/main
+# resolve any conflicts, then:
+git rebase --continue
+git push --force-with-lease origin <branch-name>
+```
+
+If you have local uncommitted changes during a rebase, stash them first:
+
+```bash
+git stash
+git pull --rebase origin main
+git stash pop
+```
+
+### Pull request guidelines
+
+- Open a PR against `main` rather than pushing directly.
+- Keep the PR focused: one logical change per PR.
+- Fill in the PR description:
+  - **What** changed and **why**.
+  - Any grain, key, or business-rule changes — and which `docs/` files were updated.
+  - Steps to verify (e.g. `make pipeline`, `make test`, `make quality`).
+- Request a review before merging if others are working on the same area.
+
+### Merging
+
+Use **Squash and merge** on GitHub to keep `main`'s history linear and readable.
+The squash title should be a valid Conventional Commits message; edit it if needed.
+
+### Makefile name
+
+The file is `Makefile` (lowercase). On Windows filesystems (case-insensitive by
+default) renaming `MakeFile` → `Makefile` may not be detected by git. If git
+shows `MakeFile` as modified after a rename, fix the index directly:
+
+```bash
+git rm --cached MakeFile
+git add Makefile
+git commit --amend  # or a new chore commit
+```
+
+Do not commit both `MakeFile` and `Makefile` — they are the same file on
+case-insensitive filesystems.
+
+### Common tasks
+
+```bash
+# Check what files changed vs origin/main
+git diff origin/main --stat
+
+# See the last 3 commits on the current branch
+git log --oneline -3
+
+# Undo the last commit (keep changes staged)
+git reset --soft HEAD~1
+
+# Discard all working-tree changes to one file
+git checkout -- path/to/file
+
+# Discard all working-tree changes (dangerous)
+git checkout -- .
+
+# View a stash without applying it
+git stash show -p stash@{0}
+```
+
+### Commit examples
 
 ```bash
 # stage only the files for this change (avoid `git add .` on mixed changes)
