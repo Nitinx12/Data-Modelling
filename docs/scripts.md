@@ -1,6 +1,6 @@
 # Scripts
 
-Reference for the four scripts in this repo. For how they fit together,
+Reference for the scripts in this repo. For how they fit together,
 see `ARCHITECTURE.md`.
 
 ## `pg_staging.py`
@@ -53,10 +53,10 @@ uv run scripts/run_models.py --continue-on-error
 
 ## `run_data_quality_loops.py`
 
-Runs every read-only SQL loop file matching `tests/*_lp_*.sql`, in order.
-Each loop raises a `NOTICE` per failed check plus a rollup line like
-`"... loop complete: 2 failed check(s), 16 failed row(s)."`; this script
-parses those notices — it never writes to the database.
+Runs every read-only SQL loop file matching `tests/data_quality/*_lp_*.sql`,
+in order. Each loop raises a `NOTICE` per failed check plus a rollup line
+like `"... loop complete: 2 failed check(s), 16 failed row(s)."`; this
+script parses those notices — it never writes to the database.
 
 ```bash
 uv run scripts/run_data_quality_loops.py
@@ -64,7 +64,7 @@ uv run scripts/run_data_quality_loops.py
 
 | | |
 |---|---|
-| Loop files | `tests/*_lp_*.sql` |
+| Loop files | `tests/data_quality/*_lp_*.sql` |
 | Logs | via `utils.logger`, `tests` subdir |
 | Console | Rich rule per loop, red `FAIL` lines, final summary table |
 | Exit behavior | Prints an overall PASS/FAIL summary; does not raise on failed checks |
@@ -98,3 +98,84 @@ MAX_AGE_DAYS=14 MAX_SIZE_MB=10 ./monitor_logs.sh clean
 | Default age limit | 7 days |
 | Default size limit | 5 MB |
 | Always kept | the single most recently modified file |
+
+## `main.py`
+
+One-shot pipeline orchestrator. Runs `pg_staging.py` → `run_models.py` →
+`run_data_quality_loops.py` in sequence, as a single Python process that
+invokes each script via `uv run` and inspects the exit code before
+proceeding. Useful for cron, CI, and ad-hoc end-to-end runs without
+typing three `make` invocations.
+
+```bash
+uv run main.py                            # full pipeline, stop on first failure
+uv run main.py --skip-staging             # models + quality only
+uv run main.py --skip-quality             # staging + models only
+uv run main.py --continue-on-error        # keep going past model failures
+uv run main.py --help-stages              # show what each stage does
+```
+
+Or via the registered entry point: `uv run pipeline` (or just `pipeline`
+after `uv sync`).
+
+| | |
+|---|---|
+| Exit code | `0` all stages passed, `1` at least one stage failed, `2` usage error |
+| Output | each stage's stdout/stderr streamed live, final rollup line |
+
+## `health_check.sh`
+
+Read-only pre-flight check for the entire toolchain. Verifies that every
+external dependency (CLI, Python interpreter, `.env`, Postgres,
+MongoDB) is reachable and reports disk usage on the project's
+high-churn directories. Does not modify any data.
+
+```bash
+./health_check.sh                # quick checks
+./health_check.sh --deep         # also count rows in staging.* and core.*
+./health_check.sh -h             # help
+```
+
+Builds `DATABASE_URL` from `.env` automatically if not passed on the
+command line.
+
+| | |
+|---|---|
+| Exit code | `0` all required checks passed, `1` at least one failed, `2` usage error |
+| Output | colour-coded `[ OK ]` / `[WARN]` / `[FAIL]` per check + summary |
+
+## `security_check.sh`
+
+Scans the working tree for common security mistakes — `.env` tracked by
+git, hard-coded credentials in source, embedded PostgreSQL DSN
+passwords, private key files, missing `.gitignore` patterns. Read-only:
+never modifies any files.
+
+```bash
+./security_check.sh                  # all checks
+./security_check.sh --shellcheck   # also run shellcheck on scripts/*.sh
+./security_check.sh -h              # help
+```
+
+| | |
+|---|---|
+| Exit code | `0` clean, `1` at least one finding, `2` usage error |
+| Coverage | `models/`, `scripts/`, `sql/`, `utils/`, `*.py`, `*.sql`, `*.sh` |
+
+## `setup_dev.sh`
+
+One-shot local environment setup for a fresh checkout. Idempotent — safe
+to re-run after pulling. Designed to replace the "what do I install
+first?" boilerplate for new contributors.
+
+```bash
+./setup_dev.sh                  # full: uv sync + .env + placeholder check + health check
+./setup_dev.sh --no-sync       # skip uv sync
+./setup_dev.sh --skip-health   # skip the final health check
+./setup_dev.sh -h              # help
+```
+
+| | |
+|---|---|
+| Exit code | `0` all steps ok, `1` required step failed, `2` usage error |
+| Order | uv sync → `.env` scaffold → placeholder detection → `health_check.sh` |

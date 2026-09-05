@@ -4,19 +4,26 @@
 # Thin wrapper around this project's scripts so the full pipeline, or
 # any single stage of it, can be run with one command:
 #
-#   make pipeline            staging load -> models -> data quality
-#   make staging             Mongo -> Postgres staging load (pg_staging.py)
-#   make models               run warehouse model SQL in sequence (run_models.py)
-#   make quality              run read-only data quality loops (run_data_quality_loops.py)
+#   make pipeline              staging load -> models -> data quality
+#   make staging               Mongo -> Postgres staging load (pg_staging.py)
+#   make models                run warehouse model SQL in sequence (run_models.py)
+#   make quality               run read-only data quality loops (run_data_quality_loops.py)
 #   make analytics             apply analytics-schema SQL (functions/marts) via psql
+#   make test                  run pytest unit tests (tests/unit/)
+#   make test-cov              run pytest with coverage report
+#   make gx                    run a Great Expectations suite (gx/expectations/)
 #   make lint                  run ruff checks over the codebase
+#   make health-check          verify CLIs, Python, Postgres, MongoDB (scripts/health_check.sh)
+#   make security-check        surface secrets, key files, .env mistakes (scripts/security_check.sh)
+#   make setup-dev             uv sync + .env scaffold + health check (scripts/setup_dev.sh)
 #   make logs-summary          read-only report of logs/ (monitor_logs.sh)
 #
 # Run `make help` (or just `make`) to list every target with a description.
 #
-# Requires: uv (https://github.com/astral-sh/uv), bash, psql (analytics target only).
+# Requires: uv (https://github.com/astral-sh/uv), bash, psql (analytics +
+#   health_check), mongosh (health_check).
 # On Windows, run this from inside WSL — the Makefile shells out to bash
-# and monitor_logs.sh needs a real POSIX shell, not PowerShell/cmd.exe.
+# and *.sh scripts need a real POSIX shell, not PowerShell/cmd.exe.
 # =====================================================================
 
 .DEFAULT_GOAL := help

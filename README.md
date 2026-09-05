@@ -39,29 +39,43 @@ flowchart LR
     DQ -.logs.-> Logs
 
     Logs -->|make logs-summary /<br/>logs-clean| Monitor["monitor_logs.sh"]
+    Staging -.verify.-> HC["health_check.sh"]
+    Models -.verify.-> HC
+    DQ -.verify.-> HC
+    HC -.scan.-> Sec["security_check.sh"]
+    Setup["setup_dev.sh"] -.one-time.-> Env[".env + venv"]
+    Setup -.then.-> HC
 ```
 
 `make pipeline` runs the staging → models → quality chain above in one
-command. For how the pieces fit together and what each script does in
+command. `make health-check` and `make security-check` are read-only
+pre-flight checks you can run before or after any stage.
+For how the pieces fit together and what each script does in
 detail, see **[Docs](#docs)** below.
 
 ## Requirements
 
 - [`uv`](https://github.com/astral-sh/uv)
 - `bash`
-- `psql` (only needed for `make analytics`)
+- `psql` (for `make analytics` and `make health-check`)
+- `mongosh` (for `make health-check`)
 - A `.env` file at the project root (copy `.env.example` and fill it in)
 
 > **Windows:** run everything from inside WSL — the Makefile shells out
-> to `bash`, and `monitor_logs.sh` needs a real POSIX shell, not
+> to `bash`, and all `scripts/*.sh` need a real POSIX shell, not
 > PowerShell/cmd.exe.
 
 ## Quickstart
 
 ```bash
-make install        # uv sync — install project dependencies
-make config          # sanity-check resolved paths/vars before running anything
-make pipeline        # staging load -> models -> data quality, in order
+# One-time setup for a new checkout
+make setup-dev        # uv sync + .env scaffold + health check
+
+# Sanity-check resolved paths/vars before running anything
+make config
+
+# Full pipeline
+make pipeline         # staging load -> models -> data quality, in order
 ```
 
 ## Docs
@@ -122,6 +136,20 @@ Makefile itself.
 | Command | Description |
 |---|---|
 | `make analytics` | Apply every `.sql` file in `sql/analytics/` via `psql` and print any KPI results; builds `DATABASE_URL` from `.env` if not passed explicitly |
+
+### Health & security checks
+
+| Command | Description |
+|---|---|
+| `make health-check` | Verify `uv`, `psql`, `mongosh`, Python 3.13, `.env`, Postgres + MongoDB reachability, and `logs/` + `.venv/` disk usage |
+| `make health-check-deep` | Same as `make health-check`, plus row counts for every `staging.*` and `core.*` table |
+| `make security-check` | Surface common security mistakes — `.env` tracked, hard-coded secrets, private keys, missing `.gitignore` patterns |
+| `make security-check-shellcheck` | Same as `make security-check`, plus `shellcheck` on every `scripts/*.sh` |
+| `make setup-dev` | Idempotent local setup — `uv sync`, copy `.env.example` → `.env`, placeholder detection, then `make health-check` |
+
+All four use `scripts/health_check.sh` and `scripts/security_check.sh`
+under the hood. Run them directly from WSL or Linux if you need to pass
+flags not exposed through the Makefile.
 
 ### Log maintenance (`monitor_logs.sh`)
 
