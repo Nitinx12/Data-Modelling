@@ -1,0 +1,51 @@
+# great_expectations.yml
+# ========================
+# GX project configuration.
+# After installing great-expectations and running `gx init` interactively,
+# the wizard will replace most of this with generated content.
+# Until then, this file documents the intended layout.
+config_version: 3.0
+
+data_sources:
+  staging_postgres:
+    class_name: SimpleSQLalchemyDatasource
+    connection_string: postgresql+psycopg2://${POSTGRES_USERNAME}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DATABASE}
+    introspection:
+      n_rows_infer_all_columns: 1000
+    tables:
+      staging:
+        schema_name: staging
+
+  core_postgres:
+    class_name: SimpleSQLalchemyDatasource
+    connection_string: postgresql+psycopg2://${POSTGRES_USERNAME}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DATABASE}
+    introspection:
+      n_rows_infer_all_columns: 1000
+    tables:
+      core:
+        schema_name: core
+
+data_asset_save_identifier:
+  save_format: yaml
+
+stores:
+  expectations_store:
+    class_name: ExpectationsStore
+    store_backend:
+      class_name: TupleFilesystemStoreBackend
+      filepath: gx/expectations/
+
+  validations_store:
+    class_name: ValidationsStore
+    store_backend:
+      class_name: TupleFilesystemStoreBackend
+      filepath: gx/uncommitted/validations/
+
+  checkpoint_store:
+    class_name: CheckpointStore
+    store_backend:
+      class_name: TupleFilesystemStoreBackend
+      filepath: gx/checkpoints/
+
+expectations_directory: gx/expectations/
+validations_directory: gx/uncommitted/validations/

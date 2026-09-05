@@ -1,0 +1,90 @@
+# required_text_suite.yaml
+# =========================
+# Expectation suite: core tables should have no blank required text columns.
+# Mirrors tests/01_lp_required_text_checks.sql
+# Usage: gx run --suite gx/expectations/required_text_suite.yaml
+#        make gx SUITE=required_text_suite
+expectations:
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: campaign_name
+      mostly: 1.0
+    meta: { schema: core.dim_campaign, reason: "business key — must be present" }
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: customer_id
+      mostly: 1.0
+    meta: { schema: core.dim_customers, reason: "business key" }
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: customer_name
+      mostly: 1.0
+    meta: { schema: core.dim_customers }
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: city_name
+      mostly: 1.0
+    meta: { schema: core.dim_geo, reason: "business key" }
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: product_code
+      mostly: 1.0
+    meta: { schema: core.dim_products, reason: "business key" }
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: product_name
+      mostly: 1.0
+    meta: { schema: core.dim_products }
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: unit_price
+      mostly: 1.0
+    meta: { schema: core.dim_products, reason: "price must be known for line_total calc" }
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: order_id
+      mostly: 1.0
+    meta: { schema: core.fact_orders, reason: "business key (with line_id)" }
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: line_id
+      mostly: 1.0
+    meta: { schema: core.fact_orders, reason: "composite business key" }
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: customer_key
+      mostly: 1.0
+    meta: { schema: core.fact_orders, reason: "dimension FK" }
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: product_key
+      mostly: 1.0
+    meta: { schema: core.fact_orders, reason: "dimension FK" }
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: flag_key
+      mostly: 1.0
+    meta: { schema: core.fact_orders, reason: "dimension FK" }
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: ship_geo_key
+      mostly: 1.0
+    meta: { schema: core.fact_orders, reason: "role-playing dimension FK" }
+
+  - expectation_type: expect_column_values_to_not_be_null
+    kwargs:
+      column: bill_geo_key
+      mostly: 1.0
+    meta: { schema: core.fact_orders, reason: "role-playing dimension FK" }

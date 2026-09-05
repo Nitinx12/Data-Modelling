@@ -1,0 +1,108 @@
+# negative_numeric_suite.yaml
+# ============================
+# Expectation suite: no numeric measure column should contain negative values.
+# Mirrors tests/03_lp_negative_numeric_checks.sql
+expectations:
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: budget
+      min_value: 0
+    meta: { schema: core.dim_campaign }
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: unit_price
+      min_value: 0
+    meta: { schema: core.dim_products }
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: credit_limit
+      min_value: 0
+      allow_null: true
+    meta: { schema: core.dim_customers }
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: spend
+      min_value: 0
+    meta: { schema: core.fact_campaign_spend }
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: impressions
+      min_value: 0
+    meta: { schema: core.fact_campaign_spend }
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: clicks
+      min_value: 0
+    meta: { schema: core.fact_campaign_spend }
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: quantity
+      min_value: 0
+    meta: { schema: core.fact_inventory }
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: quantity
+      min_value: 0
+    meta: { schema: core.fact_orders }
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: unit_price
+      min_value: 0
+    meta: { schema: core.fact_orders }
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: unit_cost
+      min_value: 0
+    meta: { schema: core.fact_orders }
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: discount_pct
+      min_value: 0
+      max_value: 1
+    meta: { schema: core.fact_orders }
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: line_total
+      min_value: 0
+    meta: { schema: core.fact_orders }
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: amount
+      min_value: 0
+    meta: { schema: core.fact_order_process }
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: days_order_to_ship
+      min_value: 0
+    meta: { schema: core.fact_order_process }
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: days_ship_to_delivery
+      min_value: 0
+    meta: { schema: core.fact_order_process }
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: days_order_to_invoice
+      min_value: 0
+    meta: { schema: core.fact_order_process }
+
+  - expectation_type: expect_column_values_to_be_between
+    kwargs:
+      column: days_invoice_to_pay
+      min_value: 0
+    meta: { schema: core.fact_order_process }

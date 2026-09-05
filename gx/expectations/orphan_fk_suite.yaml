@@ -1,0 +1,74 @@
+# orphan_fk_suite.yaml
+# =====================
+# Expectation suite: all foreign keys must resolve to an existing dimension row.
+# Mirrors tests/05_lp_orphan_foreign_key_checks.sql
+# These are implemented as expect_column_values_to_be_in_set against the
+# dimension's full set of keys — a practical proxy for FK constraint validation
+# in GX when the DB schema FK constraints aren't enforced.
+expectations:
+  - expectation_type: expect_column_values_to_be_in_set
+    kwargs:
+      column: campaign_key
+      value_set: []  # resolved dynamically at runtime via Batch Request
+    meta:
+      schema: core.fact_campaign_spend
+      fk_to: core.dim_campaign(campaign_key)
+      note: "value_set populated by gx/runner.py at runtime"
+
+  - expectation_type: expect_column_values_to_be_in_set
+    kwargs:
+      column: product_key
+    meta:
+      schema: core.fact_inventory
+      fk_to: core.dim_products(product_key)
+
+  - expectation_type: expect_column_values_to_be_in_set
+    kwargs:
+      column: campaign_key
+    meta:
+      schema: core.fact_less_fact
+      fk_to: core.dim_campaign(campaign_key)
+
+  - expectation_type: expect_column_values_to_be_in_set
+    kwargs:
+      column: product_key
+    meta:
+      schema: core.fact_less_fact
+      fk_to: core.dim_products(product_key)
+
+  - expectation_type: expect_column_values_to_be_in_set
+    kwargs:
+      column: customer_key
+    meta:
+      schema: core.fact_orders
+      fk_to: core.dim_customers(customer_key)
+
+  - expectation_type: expect_column_values_to_be_in_set
+    kwargs:
+      column: product_key
+    meta:
+      schema: core.fact_orders
+      fk_to: core.dim_products(product_key)
+
+  - expectation_type: expect_column_values_to_be_in_set
+    kwargs:
+      column: flag_key
+    meta:
+      schema: core.fact_orders
+      fk_to: core.dim_orders_flag(flag_key)
+
+  - expectation_type: expect_column_values_to_be_in_set
+    kwargs:
+      column: ship_geo_key
+    meta:
+      schema: core.fact_orders
+      fk_to: core.dim_geo(geo_key)
+      role: "role-playing dimension (ship-to)"
+
+  - expectation_type: expect_column_values_to_be_in_set
+    kwargs:
+      column: bill_geo_key
+    meta:
+      schema: core.fact_orders
+      fk_to: core.dim_geo(geo_key)
+      role: "role-playing dimension (bill-to)"

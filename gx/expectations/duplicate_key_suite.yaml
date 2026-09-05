@@ -1,0 +1,93 @@
+# duplicate_key_suite.yaml
+# =========================
+# Expectation suite: primary-key / unique-key columns must contain no duplicates.
+# Mirrors tests/04_lp_duplicate_key_checks.sql
+expectations:
+  - expectation_type: expect_column_values_to_be_unique
+    kwargs:
+      column: campaign_key
+    meta: { schema: core.dim_campaign, constraint: PK }
+
+  - expectation_type: expect_column_values_to_be_unique
+    kwargs:
+      column: campaign_name
+    meta: { schema: core.dim_campaign, constraint: UK }
+
+  - expectation_type: expect_column_values_to_be_unique
+    kwargs:
+      column: customer_key
+    meta: { schema: core.dim_customers, constraint: PK }
+
+  - expectation_type: expect_column_values_to_be_unique
+    kwargs:
+      column: customer_id
+    meta: { schema: core.dim_customers, constraint: UK }
+
+  - expectation_type: expect_column_values_to_be_unique
+    kwargs:
+      column: geo_key
+    meta: { schema: core.dim_geo, constraint: PK }
+
+  - expectation_type: expect_column_values_to_be_unique
+    kwargs:
+      column: city_name
+    meta: { schema: core.dim_geo, constraint: UK }
+
+  - expectation_type: expect_column_values_to_be_unique
+    kwargs:
+      column: flag_key
+    meta: { schema: core.dim_orders_flag, constraint: PK }
+
+  - expectation_type: expect_column_values_to_be_unique
+    kwargs:
+      column: product_key
+    meta: { schema: core.dim_products, constraint: PK }
+
+  - expectation_type: expect_column_values_to_be_unique
+    kwargs:
+      column: product_code
+    meta: { schema: core.dim_products, constraint: UK }
+
+  - expectation_type: expect_column_values_to_be_unique
+    kwargs:
+      column: spend_key
+    meta: { schema: core.fact_campaign_spend, constraint: PK }
+
+  - expectation_type: expect_column_distinct_values_to_be_in_set
+    kwargs:
+      column: order_id
+      value_set: []
+      expect_unique: true
+    meta: { schema: core.fact_campaign_spend, constraint: UK, note: "composite (campaign_name, spend_date)" }
+
+  - expectation_type: expect_column_values_to_be_unique
+    kwargs:
+      column: inventory_key
+    meta: { schema: core.fact_inventory, constraint: PK }
+
+  - expectation_type: expect_column_values_to_be_unique
+    kwargs:
+      column: fact_less_fact_key
+    meta: { schema: core.fact_less_fact, constraint: PK }
+
+  - expectation_type: expect_column_values_to_be_unique
+    kwargs:
+      column: order_process_key
+    meta: { schema: core.fact_order_process, constraint: PK }
+
+  - expectation_type: expect_column_values_to_be_unique
+    kwargs:
+      column: order_id
+    meta: { schema: core.fact_order_process, constraint: UK }
+
+  - expectation_type: expect_column_values_to_be_unique
+    kwargs:
+      column: order_line_key
+    meta: { schema: core.fact_orders, constraint: PK }
+
+  - expectation_type: expect_column_distinct_values_to_be_in_set
+    kwargs:
+      column: order_id
+      value_set: []
+      expect_unique: false
+    meta: { schema: core.fact_orders, constraint: "composite UK (order_id, line_id)" }

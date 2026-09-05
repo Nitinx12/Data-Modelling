@@ -1,0 +1,64 @@
+# future_date_suite.yaml
+# ======================
+# Expectation suite: no date/timestamp column should contain future values.
+# Mirrors tests/02_lp_future_date_checks.sql
+expectations:
+  - expectation_type: expect_column_values_to_be_less_than
+    kwargs:
+      column: spend_date
+      value: "$today"
+    meta: { schema: core.fact_campaign_spend }
+
+  - expectation_type: expect_column_values_to_be_less_than
+    kwargs:
+      column: order_date
+      value: "$today"
+    meta: { schema: core.fact_orders }
+
+  - expectation_type: expect_column_values_to_be_less_than
+    kwargs:
+      column: ship_date
+      value: "$today"
+    meta: { schema: core.fact_order_process }
+
+  - expectation_type: expect_column_values_to_be_less_than
+    kwargs:
+      column: delivery_date
+      value: "$today"
+    meta: { schema: core.fact_order_process }
+
+  - expectation_type: expect_column_values_to_be_less_than
+    kwargs:
+      column: invoice_date
+      value: "$today"
+    meta: { schema: core.fact_order_process }
+
+  - expectation_type: expect_column_values_to_be_less_than
+    kwargs:
+      column: pay_date
+      value: "$today"
+    meta: { schema: core.fact_order_process }
+
+  - expectation_type: expect_column_values_to_be_less_than
+    kwargs:
+      column: start_date
+      value: "$today"
+    meta: { schema: core.dim_campaign }
+
+  - expectation_type: expect_column_values_to_be_less_than
+    kwargs:
+      column: source_updated_at
+      value: "$now"
+    meta: { schema: core.dim_customers }
+
+  - expectation_type: expect_column_values_to_be_less_than
+    kwargs:
+      column: source_updated_at
+      value: "$now"
+    meta: { schema: core.dim_products }
+
+  - expectation_type: expect_column_values_to_be_less_than
+    kwargs:
+      column: source_updated_at
+      value: "$now"
+    meta: { schema: core.dim_geo }
