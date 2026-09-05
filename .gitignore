@@ -155,3 +155,4 @@ data/*.xlsx
 data/*.xls
 
 **/__init__.py
+.qwen
