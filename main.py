@@ -16,6 +16,7 @@ Exit codes:
     1   at least one stage failed
     2   usage / argument error
 """
+
 from __future__ import annotations
 
 import argparse
@@ -107,10 +108,12 @@ def main() -> int:
         results.append((label, result.returncode))
         status = "OK" if result.returncode == 0 else f"FAIL (exit {result.returncode})"
         print(f"\n  [{status}] {script.name} — {elapsed:.1f}s", flush=True)
-        if result.returncode != 0:
-            if not args.continue_on_error:
-                print(f"\n✗ Pipeline stopped at '{label}' (--continue-on-error not set).", flush=True)
-                break
+        if result.returncode != 0 and not args.continue_on_error:
+            print(
+                f"\n✗ Pipeline stopped at '{label}' (--continue-on-error not set).",
+                flush=True,
+            )
+            break
 
     total_elapsed = time.monotonic() - total_start
     print(f"\n{'=' * 60}")

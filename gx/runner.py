@@ -14,6 +14,7 @@ The runner intentionally re-uses the same Postgres connection settings
 the rest of the warehouse uses (`utils.engine`), so `make gx` works the
 same way as `make models`/`make quality` — drop a .env file and go.
 """
+
 from __future__ import annotations
 
 import sys
@@ -44,15 +45,13 @@ def build_datasource() -> Any:
 
 def list_suites() -> list[str]:
     suites_dir = GX_ROOT / "expectations"
-    return sorted(
-        p.stem for p in suites_dir.glob("*.yaml") if p.stem != "README"
-    )
+    return sorted(p.stem for p in suites_dir.glob("*.yaml") if p.stem != "README")
 
 
 def run_suite(name: str) -> int:
     try:
-        context, datasource = build_datasource()
-    except Exception as exc:  # pragma: no cover - import-time failures
+        context, _datasource = build_datasource()
+    except (ImportError, RuntimeError, ValueError) as exc:
         print(f"Failed to set up GX datasource: {exc}")
         return 1
 

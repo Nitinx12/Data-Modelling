@@ -7,6 +7,7 @@ fail-fast validation.
 Because the module reads env vars at import time, each test calls
 `reload_engine()` (from conftest) after setting up its own environment.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -28,6 +29,7 @@ class TestPostgresEnvLoading:
 
     def test_postgres_port_invalid_raises(self, mock_env: dict[str, str]) -> None:
         import os
+
         os.environ["POSTGRES_PORT"] = "not-a-number"
         with pytest.raises(OSError, match="POSTGRES_PORT must be an integer"):
             reload_engine()
@@ -75,9 +77,12 @@ class TestValidation:
         self, clean_env: pytest.MonkeyPatch, missing_var: str
     ) -> None:
         all_required = {
-            "POSTGRES_HOST": "h", "POSTGRES_PORT": "5432",
-            "POSTGRES_DATABASE": "d", "POSTGRES_USERNAME": "u",
-            "POSTGRES_PASSWORD": "p", "MONGO_URI": "mongodb://x",
+            "POSTGRES_HOST": "h",
+            "POSTGRES_PORT": "5432",
+            "POSTGRES_DATABASE": "d",
+            "POSTGRES_USERNAME": "u",
+            "POSTGRES_PASSWORD": "p",
+            "MONGO_URI": "mongodb://x",
             "MONGO_DB": "db",
         }
         del all_required[missing_var]

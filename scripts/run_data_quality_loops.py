@@ -67,11 +67,17 @@ def run_single_loop(cursor, raw_connection, loop_file: Path) -> dict:
 
     # Only look at notices raised by this loop, not earlier ones on the connection.
     new_notices = [clean_notice(n) for n in raw_connection.notices[notices_before:]]
-    failed_lines = [n.removeprefix("[FAILED] ") for n in new_notices if n.startswith("[FAILED]")]
-    summary_line = new_notices[-1] if new_notices else "completed without a database notice"
+    failed_lines = [
+        n.removeprefix("[FAILED] ") for n in new_notices if n.startswith("[FAILED]")
+    ]
+    summary_line = (
+        new_notices[-1] if new_notices else "completed without a database notice"
+    )
 
     summary_match = SUMMARY_PATTERN.search(summary_line)
-    checks_failed = int(summary_match.group("checks")) if summary_match else len(failed_lines)
+    checks_failed = (
+        int(summary_match.group("checks")) if summary_match else len(failed_lines)
+    )
     rows_failed = int(summary_match.group("rows")) if summary_match else 0
 
     return {
@@ -107,7 +113,9 @@ def run_data_quality_loops(loop_files: list[Path]) -> list[dict]:
                 log.info("%s: %s", result["file"], result["summary"])
         except Exception:
             raw_connection.rollback()
-            log.exception("Data quality loop execution failed; transaction rolled back.")
+            log.exception(
+                "Data quality loop execution failed; transaction rolled back."
+            )
             raise
         finally:
             cursor.close()
@@ -131,8 +139,15 @@ def print_summary_table(results: list[dict]) -> None:
     for result in results:
         total_checks += result["checks_failed"]
         total_rows += result["rows_failed"]
-        status = "[green]PASS[/green]" if result["checks_failed"] == 0 else "[red]FAIL[/red]"
-        table.add_row(result["file"], str(result["checks_failed"]), str(result["rows_failed"]), status)
+        status = (
+            "[green]PASS[/green]" if result["checks_failed"] == 0 else "[red]FAIL[/red]"
+        )
+        table.add_row(
+            result["file"],
+            str(result["checks_failed"]),
+            str(result["rows_failed"]),
+            status,
+        )
 
     console.print()
     console.print(table)
@@ -141,7 +156,9 @@ def print_summary_table(results: list[dict]) -> None:
     if total_checks == 0:
         console.print("\n[bold green]ALL CHECKS PASSED[/bold green]")
     else:
-        console.print(f"\n[bold red]{total_checks} CHECK(S) FAILED[/bold red] ({total_rows} row(s) affected)")
+        console.print(
+            f"\n[bold red]{total_checks} CHECK(S) FAILED[/bold red] ({total_rows} row(s) affected)"
+        )
 
 
 def main() -> None:

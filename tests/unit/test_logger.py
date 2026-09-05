@@ -4,6 +4,7 @@ tests/unit/test_logger.py
 Tests for utils/logger.py — logger creation, handler dedup,
 file/console levels, and rotating-file behaviour.
 """
+
 from __future__ import annotations
 
 import logging
@@ -34,28 +35,25 @@ class TestGetLogger:
 
     def test_console_level_override(self) -> None:
         log = get_logger("unit_test_quiet", console_level=logging.ERROR)
-        console = next(
-            h for h in log.handlers if type(h).__name__ == "StreamHandler"
-        )
+        console = next(h for h in log.handlers if type(h).__name__ == "StreamHandler")
         assert console.level == logging.ERROR
 
     def test_file_handler_uses_log_dir(self) -> None:
         log = get_logger("unit_test_path")
         file_handler = next(
-            h for h in log.handlers
-            if type(h).__name__ == "RotatingFileHandler"
+            h for h in log.handlers if type(h).__name__ == "RotatingFileHandler"
         )
         assert Path(file_handler.baseFilename).parent == Path(LOG_DIR)
 
     def test_subdir_creates_nested_log_dir(self, tmp_path: Path) -> None:
         import utils.logger as logger_module
+
         original = logger_module.LOG_DIR
         logger_module.LOG_DIR = str(tmp_path)
         try:
             log = get_logger("unit_test_subdir", subdir="staging")
             file_handler = next(
-                h for h in log.handlers
-                if type(h).__name__ == "RotatingFileHandler"
+                h for h in log.handlers if type(h).__name__ == "RotatingFileHandler"
             )
             assert "staging" in str(file_handler.baseFilename)
         finally:

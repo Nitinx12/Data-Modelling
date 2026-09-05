@@ -24,7 +24,9 @@ from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 
-BASE_DIR = Path(__file__).resolve().parents[1]  # project root, one level up from scripts/
+BASE_DIR = (
+    Path(__file__).resolve().parents[1]
+)  # project root, one level up from scripts/
 MODELS_DIR = BASE_DIR / "models"  # change if your .sql files live elsewhere
 
 # make the project root importable no matter how/where this script is invoked
@@ -100,7 +102,9 @@ def print_summary(console: Console, results: list[ModelResult]) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run warehouse model SQL scripts in sequence.")
+    parser = argparse.ArgumentParser(
+        description="Run warehouse model SQL scripts in sequence."
+    )
     parser.add_argument(
         "--only",
         nargs="+",

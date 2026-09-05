@@ -9,6 +9,7 @@ Isolation strategy:
   - _reset_utils drops cached utils.* modules between tests so reimports
     re-run module-level env loading against the current os.environ.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -29,6 +30,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 # Per-test isolation
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def _reset_utils() -> None:
     """Drop cached utils.* modules between tests so reimports re-run
@@ -46,21 +48,25 @@ def _reset_utils() -> None:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def reload_engine() -> object:
     """Re-import utils.engine against the current os.environ."""
     import utils.engine
+
     return importlib.reload(utils.engine)
 
 
 def reload_connection() -> object:
     """Re-import utils.connection against the current os.environ."""
     import utils.connection
+
     return importlib.reload(utils.connection)
 
 
 # ---------------------------------------------------------------------------
 # Environment fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def clean_env(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
@@ -70,9 +76,10 @@ def clean_env(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
     monkeypatch.setenv("DATA_MODELLING_NO_DOTENV", "1")
     # Wipe any pre-existing values
     for k in list(os.environ):
-        if k not in ("DATA_MODELLING_NO_DOTENV",):
-            if any(k.startswith(p) for p in ("POSTGRES_", "MONGO_", "DATABRICKS_", "PYSPARK_")):
-                monkeypatch.delenv(k)
+        if k not in ("DATA_MODELLING_NO_DOTENV",) and any(
+            k.startswith(p) for p in ("POSTGRES_", "MONGO_", "DATABRICKS_", "PYSPARK_")
+        ):
+            monkeypatch.delenv(k)
     return monkeypatch
 
 
@@ -97,6 +104,7 @@ def mock_env(clean_env: pytest.MonkeyPatch) -> dict[str, str]:
 def mock_logger() -> MagicMock:
     """No-op mock logger so tests that call get_logger() don't touch the filesystem."""
     import logging
+
     mock = MagicMock(spec=logging.Logger)
     mock.info = MagicMock()
     mock.warning = MagicMock()
