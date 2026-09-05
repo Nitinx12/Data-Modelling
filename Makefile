@@ -50,7 +50,10 @@ DATABASE_URL    ?=
         analytics \
         lint lint-fix format-check \
         logs-summary logs-clean-dry logs-clean logs-clean-force \
-        pipeline pipeline-continue \
+        health-check health-check-deep \
+        security-check security-check-shellcheck \
+        setup-dev \
+        pipeline pipeline-continue pipeline-main pipeline-main-continue \
         clean distclean config
 
 # =====================================================================
@@ -169,6 +172,24 @@ logs-clean-force: ## Delete flagged logs without confirmation (CI/cron use)
 	MAX_AGE_DAYS=$(MAX_AGE_DAYS) MAX_SIZE_MB=$(MAX_SIZE_MB) $(SCRIPTS_DIR)/monitor_logs.sh clean -y
 
 # =====================================================================
+# Health & security checks (scripts/health_check.sh, security_check.sh)
+# =====================================================================
+health-check: ## Run scripts/health_check.sh — verify CLIs, Python, Postgres, MongoDB
+	$(SCRIPTS_DIR)/health_check.sh
+
+health-check-deep: ## health_check.sh + warehouse table row counts
+	$(SCRIPTS_DIR)/health_check.sh --deep
+
+security-check: ## Run scripts/security_check.sh — surface secrets, key files, .env mistakes
+	$(SCRIPTS_DIR)/security_check.sh
+
+security-check-shellcheck: ## security_check.sh + shellcheck on all scripts/*.sh
+	$(SCRIPTS_DIR)/security_check.sh --shellcheck
+
+setup-dev: ## Run scripts/setup_dev.sh — uv sync, .env scaffold, health check
+	$(SCRIPTS_DIR)/setup_dev.sh
+
+# =====================================================================
 # Full pipeline
 # =====================================================================
 pipeline: staging models quality ## Run staging load -> models -> data quality, in order
@@ -176,6 +197,12 @@ pipeline: staging models quality ## Run staging load -> models -> data quality, 
 
 pipeline-continue: staging models-continue quality ## Same as `pipeline`, but models keep running past failures
 	@echo "Pipeline complete (continue-on-error)."
+
+pipeline-main: ## Run the full pipeline via main.py (stops on first failure)
+	$(PY) main.py
+
+pipeline-main-continue: ## Run main.py with --continue-on-error
+	$(PY) main.py --continue-on-error
 
 # =====================================================================
 # Housekeeping
