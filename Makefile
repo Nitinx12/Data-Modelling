@@ -120,7 +120,7 @@ models-continue: check-env ## Run every model, continuing past failures instead 
 	$(PY) $(SCRIPTS_DIR)/run_models.py --continue-on-error
 
 # =====================================================================
-# Data quality — run_data_quality_loops.py (reads tests/*_lp_*.sql)
+# Data quality — run_data_quality_loops.py (reads tests/data_quality/*_lp_*.sql)
 # =====================================================================
 quality: check-env ## Run the read-only data quality SQL loops
 	$(PY) $(SCRIPTS_DIR)/run_data_quality_loops.py
