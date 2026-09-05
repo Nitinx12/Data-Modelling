@@ -42,4 +42,21 @@ package = false
 [dependency-groups]
 dev = [
     "ruff>=0.16.5",
+    "pytest>=9.1.1",
+    "pytest-cov>=6.0.0",
+    "great-expectations>=1.0.0",
+]
+
+[tool.pytest.ini_options]
+minversion = "9.0"
+testpaths = ["tests/unit"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
 ]

@@ -2,7 +2,8 @@ import os
 
 from dotenv import load_dotenv
 
-if not load_dotenv():
+_NO_DOTENV = os.environ.get("DATA_MODELLING_NO_DOTENV", "").lower() in ("1", "true", "yes")
+if not _NO_DOTENV and not load_dotenv():
     print("Warning: no .env file found, relying on system environment variables")
 
 # =========================================================
