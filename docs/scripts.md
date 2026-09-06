@@ -53,7 +53,7 @@ uv run scripts/run_models.py --continue-on-error
 
 ## `run_data_quality_loops.py`
 
-Runs every read-only SQL loop file matching `tests/data_quality/*_lp_*.sql`,
+Runs every read only SQL loop file matching `tests/data_quality/*_lp_*.sql`,
 in order. Each loop raises a `NOTICE` per failed check plus a rollup line
 like `"... loop complete: 2 failed check(s), 16 failed row(s)."`; this
 script parses those notices — it never writes to the database.
@@ -125,7 +125,7 @@ after `uv sync`).
 
 ## `health_check.sh`
 
-Read-only pre-flight check for the entire toolchain. Verifies that every
+Read only pre-flight check for the entire toolchain. Verifies that every
 external dependency (CLI, Python interpreter, `.env`, Postgres,
 MongoDB) is reachable and reports disk usage on the project's
 high-churn directories. Does not modify any data.
@@ -148,7 +148,7 @@ command line.
 
 Scans the working tree for common security mistakes — `.env` tracked by
 git, hard-coded credentials in source, embedded PostgreSQL DSN
-passwords, private key files, missing `.gitignore` patterns. Read-only:
+passwords, private key files, missing `.gitignore` patterns. Read only:
 never modifies any files.
 
 ```bash

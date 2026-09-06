@@ -20,7 +20,7 @@ tool, or paste into a notebook.
 
 
 ## Conventions
-- All queries are read-only `SELECT`s — safe to run anytime, no locks held.
+- All queries are read only `SELECT`s — safe to run anytime, no locks held.
 - `LIMIT`s on top-N queries are a starting point; adjust as needed.
 - `08_data_quality_checks.sql` is worth running first if a number looks
   off — it flags rows where a dimension lookup failed at load time.

@@ -19,7 +19,7 @@ it trustworthy:
 1. **Stage** — copy MongoDB collections into Postgres staging tables,
    incrementally where possible.
 2. **Model** — build dimension and fact tables in dependency order.
-3. **Check** — run read-only SQL data-quality loops over the result.
+3. **Check** — run read only SQL data-quality loops over the result.
 4. **Maintain** — keep the logs all of the above produce from growing
    unbounded.
 
@@ -48,7 +48,7 @@ flowchart LR
 ```
 
 `make pipeline` runs the staging → models → quality chain above in one
-command. `make health-check` and `make security-check` are read-only
+command. `make health-check` and `make security-check` are read only
 pre-flight checks you can run before or after any stage.
 For how the pieces fit together and what each script does in
 detail, see **[Docs](#docs)** below.
@@ -128,7 +128,7 @@ Makefile itself.
 
 | Command | Description |
 |---|---|
-| `make quality` | Run the read-only data quality SQL loops |
+| `make quality` | Run the read only data quality SQL loops |
 | `make dq` | Alias for `quality` |
 
 ### Analytics schema

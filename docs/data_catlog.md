@@ -11,7 +11,7 @@ Source layer: `staging` &nbsp;|&nbsp; Target layer: `core` &nbsp;|&nbsp; Pattern
 | 1 | `core.dim_campaign` | Dimension (SCD1) | 1 row per campaign | — |
 | 2 | `core.dim_customers` | Dimension (SCD1) | 1 row per customer | — |
 | 3 | `core.dim_geo` | Dimension (SCD1) | 1 row per city | — |
-| 4 | `core.dim_orders_flag` | Junk dimension (insert-only) | 1 row per distinct (channel, status, priority) | — |
+| 4 | `core.dim_orders_flag` | Junk dimension (insert only) | 1 row per distinct (channel, status, priority) | — |
 | 5 | `core.dim_products` | Dimension (SCD1) | 1 row per product | — |
 | 6 | `core.fact_campaign_spend` | Transaction fact | 1 row per campaign per day | `dim_campaign` |
 | 7 | `core.fact_inventory` | Periodic snapshot fact | 1 row per product per month | `dim_products` |
@@ -55,7 +55,7 @@ dim_products ───┘
 ### 2.2 `core.dim_customers`
 - **Purpose:** One row per customer, denormalizing contact, credit, and address/geo attributes.
 - **Source:** `staging.cust_master` (base) LEFT JOIN `staging.customer_contach` *(typo)* (primary contact only), `staging.user_details` (phone/credit limit), `staging.addres` *(typo)* (street), `staging.cities` (city/region).
-- **Load pattern:** SCD Type 1 upsert on `customer_id`. **Caveat:** rows with a NULL `update_at` in the joined source are filtered out entirely before load — a customer whose address/contact join produces no `update_at` will not be inserted or refreshed that run.
+- **Load pattern:** SCD Type 1 upsert on `customer_id`. All records are kept, and rows with missing timestamps are handled via `NULLS LAST` in the dedup ranking.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -76,7 +76,7 @@ dim_products ───┘
 ---
 
 ### 2.3 `core.dim_geo`
-- **Purpose:** City/region reference dimension. Used twice in `fact_orders` as a **role‑playing dimension** (ship-to and bill-to).
+- **Purpose:** City/region reference dimension. Used twice in `fact_orders` as a **role playing dimension** (ship to and bill to).
 - **Source:** `staging.cities`, deduped to latest per `CityName`.
 - **Load pattern:** SCD Type 1 upsert on `city_name`.
 
@@ -153,7 +153,7 @@ dim_products ───┘
 - **Grain:** one row per product per month.
 - **Source:** `staging.inventory`, wide/pivoted (columns `"2025-01"` … `"2025-12"`), deduped per `ProductName`, then unpivoted via `CROSS JOIN LATERAL (VALUES ...)`.
 - **Load pattern:** SCD Type 1 upsert on (`product_name`, `period_month`). **Note:** the unique constraint is on `product_name`, not `product_key` — `product_key` is a resolved, non-authoritative column.
-- **Coverage note:** hard-coded to 2025 months only; a new source column per year will need a script change.
+- **Coverage note:** covers 2025 and 2026 months.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -169,9 +169,9 @@ dim_products ───┘
 ---
 
 ### 3.3 `core.fact_less_fact`
-- **Grain:** one row per campaign–promoted‑SKU relationship. **No measures** — this is a classic factless fact, recording that an event/relationship occurred.
+- **Grain:** one row per campaign promoted SKU relationship. **No measures** — this is a classic factless fact, recording that an event/relationship occurred.
 - **Source:** `staging.campaing_sku`.
-- **Load pattern:** Insert-only, `ON CONFLICT (campaign_key, product_key) DO NOTHING`. **Caveat:** because unmatched campaigns/products resolve to `NULL` keys and Postgres treats `NULL <> NULL` for uniqueness purposes, multiple unmatched rows can insert as duplicates (the conflict target won't catch NULL/NULL pairs).
+- **Load pattern:** Insert-only. Duplicates are prevented using a `WHERE NOT EXISTS` check that explicitly handles NULL keys, ensuring no duplicate campaign-product pairs are inserted even when keys are unmatched.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -240,7 +240,7 @@ dim_products ───┘
 | Silent row exclusion | `dim_products` load drops any product with NULL or ≤ 0 `unit_price`; `dim_customers` load drops any joined row with NULL `update_at`. Both are silent — worth monitoring via the commented-out unmatched-key verification queries in each script. |
 | Possible mismatched join | `dim_products.category` is sourced from `staging.subcategory."category"`, joined on a subcategory-name match — confirm this is intentional rather than a copy-paste of the wrong source column. |
 | Duplicate risk on NULL FKs | `fact_less_fact`'s `ON CONFLICT (campaign_key, product_key) DO NOTHING` will not deduplicate rows where either key is NULL (unmatched campaign/product), since SQL NULLs are never equal. |
-| Yearly table dependency | `fact_inventory`'s unpivot is hard-coded to `2025-01`…`2025-12` columns; `fact_orders`/`fact_order_process` already union `orders_2025` + `orders_2026`, so a `2026-*` inventory pattern should be added when available. |
+| Yearly table dependency | `fact_inventory` unpivot covers 2025 and 2026. `fact_orders`/`fact_order_process` already union `orders_2025` + `orders_2026`. |
 | Fact-to-fact linkage | `fact_campaign_spend` and `fact_less_fact` share `dim_campaign` and `dim_products` but are never joined to each other directly — analysis connecting spend to promoted SKUs must go through the shared dimensions. |
 
 ---

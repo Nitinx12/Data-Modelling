@@ -13,7 +13,7 @@ flowchart LR
     Staging --> Bronze[(Postgres<br/>staging / bronze)]
     Bronze --> Models["run_models.py<br/>dims → facts"]
     Models --> DW[(Postgres<br/>dims & facts)]
-    DW --> DQ["run_data_quality_loops.py<br/>read-only checks"]
+    DW --> DQ["run_data_quality_loops.py<br/>read only checks"]
 
     Staging -.writes.-> Logs[(logs/)]
     Models -.writes.-> Logs
@@ -37,7 +37,7 @@ flowchart LR
    in one script, run in its own transaction.
 
 3. **Data quality (`run_data_quality_loops.py`)** — Executes the
-   read-only SQL "loops" in `tests/*_lp_*.sql`, which raise a `NOTICE`
+   read only SQL "loops" in `tests/*_lp_*.sql`, which raise a `NOTICE`
    per failed check plus a rollup line. The script parses those notices
    into a pass/fail summary — it never modifies data.
 

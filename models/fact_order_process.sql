@@ -24,7 +24,7 @@ CREATE SCHEMA IF NOT EXISTS core;
 CREATE TABLE IF NOT EXISTS core.fact_order_process (
     order_process_key        BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     order_id                 VARCHAR(100) NOT NULL,
-    customer_id              VARCHAR(50) REFERENCES core.dim_customers(customer_id),
+    customer_key            BIGINT REFERENCES core.dim_customers(customer_key),
     ship_mode                VARCHAR(100),
     invoice_id               VARCHAR(100),
     order_date               DATE,
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS core.fact_order_process (
 
 COMMENT ON TABLE core.fact_order_process IS 'Accumulating snapshot fact — tracks an order through its fulfillment pipeline (order -> ship -> deliver -> invoice -> pay). Grain: one row per order, updated in place as milestones occur.';
 
-CREATE INDEX IF NOT EXISTS ix_fact_order_process_customer ON core.fact_order_process (customer_id);
+CREATE INDEX IF NOT EXISTS ix_fact_order_process_customer ON core.fact_order_process (customer_key);
 CREATE INDEX IF NOT EXISTS ix_fact_order_process_invoice  ON core.fact_order_process (invoice_id);
 CREATE INDEX IF NOT EXISTS ix_fact_order_process_order_dt ON core.fact_order_process (order_date);
 
@@ -228,7 +228,7 @@ WITH orders_unioned AS (
 )
 INSERT INTO core.fact_order_process (
     order_id,
-    customer_id,
+    customer_key,
     ship_mode,
     invoice_id,
     order_date,
@@ -244,7 +244,7 @@ INSERT INTO core.fact_order_process (
 )
 SELECT
     A."OrderID",
-    C.customer_id,
+    C.customer_key,
     S."ShipMode",
     I."InvoiceID",
     NULLIF(A."OrderDate", '')::DATE,
@@ -267,7 +267,7 @@ LEFT JOIN tmp_invoices_final AS I
 LEFT JOIN tmp_payments_final AS P
     ON I."InvoiceID" = P."InvoiceID"
 ON CONFLICT (order_id) DO UPDATE SET
-    customer_id             = EXCLUDED.customer_id,
+    customer_key             = EXCLUDED.customer_key,
     ship_mode               = EXCLUDED.ship_mode,
     invoice_id              = EXCLUDED.invoice_id,
     ship_date               = EXCLUDED.ship_date,

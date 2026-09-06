@@ -55,7 +55,11 @@ JOIN core.dim_campaign AS DC
     ON CS."CampaignName" = DC.campaign_name
 JOIN core.dim_products AS P
     ON CS."PromotedSKUs" = P.product_code
-ON CONFLICT (campaign_key, product_key) DO NOTHING;
+WHERE NOT EXISTS (
+    SELECT 1 FROM core.fact_less_fact F
+    WHERE (F.campaign_key = DC.campaign_key OR (F.campaign_key IS NULL AND DC.campaign_key IS NULL))
+      AND (F.product_key = P.product_key OR (F.product_key IS NULL AND P.product_key IS NULL))
+);
 
 DELETE FROM core.fact_less_fact
 WHERE campaign_key IS NULL

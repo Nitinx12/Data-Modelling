@@ -2,7 +2,7 @@
 
 ## 1. Architecture Overview
 
-This warehouse follows a **Kimball-style star schema**, built in the `core` schema on top of raw data landed in `staging`. Every dimension uses **SCD Type 1** (overwrite in place, no history retained) driven by a `source_updated_at` comparison, so re-running a load script is always safe — rows only get touched when something actually changed upstream.
+This warehouse follows a **Kimball style star schema**, built in the `core` schema on top of raw data landed in `staging`. Every dimension uses **SCD Type 1** (overwrite in place, no history retained) driven by a `source_updated_at` comparison, so re-running a load script is always safe — rows only get touched when something actually changed upstream.
 
 There are two loosely connected "fact families," tied together by dimensions that are **conformed** (shared across more than one fact table):
 
@@ -110,7 +110,7 @@ erDiagram
     dim_products    ||--o{ fact_less_fact      : product_key
 ```
 
-Note `dim_geo` joins to `fact_orders` **twice** (ship-to and bill-to), which is a classic "role-playing dimension" — the same physical table used in two different business roles on the same fact row.
+Note `dim_geo` joins to `fact_orders` **twice** (ship to and bill to), which is a classic "role playing dimension" — the same physical table used in two different business roles on the same fact row.
 
 ---
 
@@ -133,7 +133,7 @@ Note `dim_geo` joins to `fact_orders` **twice** (ship-to and bill-to), which is 
 - **Grain:** one row per product per month
 - **Source:** `staging.inventory`, which arrives wide/pivoted (one column per month: `2025-01` … `2025-12`) and is unpivoted via `CROSS JOIN LATERAL` before loading
 - **Measure:** `quantity`
-- **Currently covers:** 2025 only — `staging.inventory` has no 2026 monthly columns yet. When they land, the `LATERAL (VALUES ...)` list in the load script needs to be extended to include them.
+- **Currently covers:** 2025 and 2026.
 
 ### `fact_campaign_spend`
 - **Grain:** one row per campaign per day
@@ -169,7 +169,7 @@ One row per distinct `(channel_code, status, priority)` combination actually obs
 ## 5. Known Issues / Open Items
 
 - **`fact_order_process` uses `customer_id` (natural key) as its FK**, while `fact_orders` uses `customer_key` (surrogate key) to reference the same dimension. Both work, but it's inconsistent — recommend standardizing on `customer_key` everywhere for clean conformance.
-- **`dim_customers` dedup ranks by the *address* table's `update_at`** (`staging.addres.update_at`), not the customer master's own timestamp, and then filters out any row where that value is null. A customer whose address record has no timestamp will be silently excluded from the load even if their core customer record is valid. Worth revisiting the ranking column or using `COALESCE` across sources.
+- **`dim_customers` dedup ranks by the *address* table's `update_at`** (`staging.addres.update_at`), not the customer master's own timestamp. All records are kept, and rows with missing timestamps are handled via `NULLS LAST` in the ranking.
 - **`dim_geo` has no dedicated region dimension** — `region_name` is stored as free text on both `dim_geo` and `dim_customers` rather than as a foreign key to a shared region table. If `staging.region` (id → region name lookup) is meant to formalize this, it isn't wired in yet.
 - Several staging tables have no load script at all yet — see `data_catalog.md` for the full list and hypotheses on what they are.
 

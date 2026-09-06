@@ -13,12 +13,18 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 ## [Unreleased]
 
 ### Added
+- PowerShell equivalents for all Bash ops scripts (`health_check.ps1`, `security_check.ps1`, `monitor_logs.ps1`, `setup_dev.ps1`) for cross-platform support.
 
 ### Changed
+- Removed hyphens from prose in all project markdown files to match project conventions.
+- Updated `dim_customers` and `dim_products` load scripts to no longer silently exclude rows with missing timestamps or zero prices.
+- Standardized dimension joins in `fact_orders` and `fact_inventory` to use business IDs (natural keys) instead of names.
+- Extended `fact_inventory` unpivot logic to cover 2026 monthly columns.
+- Updated documentation in `Schema.md` and `data_catlog.md` to reflect these changes.
 
 ### Fixed
-
-### Removed
+- Fixed surrogate key inconsistency in `fact_order_process` by switching from `customer_id` (natural) to `customer_key` (surrogate).
+- Fixed duplicate risk on NULL foreign keys in `fact_less_fact` by replacing `ON CONFLICT` with a `WHERE NOT EXISTS` check.
 
 ---
 

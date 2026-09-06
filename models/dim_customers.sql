@@ -71,7 +71,6 @@ duplicate_check AS (
             ORDER BY "update_at" DESC
         ) AS rnk
     FROM merge_quries
-    WHERE "update_at" IS NOT NULL
 ),
 final_customers AS (
     SELECT *
