@@ -25,8 +25,8 @@ from rich.console import Console
 from rich.table import Table
 
 BASE_DIR = (
-    Path(__file__).resolve().parents[1]
-)  # project root, one level up from scripts/
+    Path(__file__).resolve().parents[2]
+)  # project root, two levels up from scripts/python/
 MODELS_DIR = BASE_DIR / "models"  # change if your .sql files live elsewhere
 
 # make the project root importable no matter how/where this script is invoked

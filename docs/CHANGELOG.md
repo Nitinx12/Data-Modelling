@@ -35,6 +35,8 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 - Fixed `fact_order_process` `CREATE TABLE IF NOT EXISTS` not picking up the new `customer_key` column when the table already existed from a prior run; added a `DROP TABLE IF EXISTS core.fact_order_process CASCADE;` at the top of the DDL block so the table is rebuilt with the current schema.
 - Fixed `fact_orders` staging SELECT lists that omitted `CustomerID`; switched the customer join to use `C.customer_name = O."CustomerName"` to match the actual columns in `staging.orders_2025` / `staging.orders_2026` (the staging tables only carry `CustomerName`, no `CustomerID`).
 - Fixed `fact_orders` product join referencing `OI."ProductCode"` (column does not exist on `staging.order_line_items`); changed to `P.product_name = OI."ProductName"` so the join resolves against the real staging schema.
+- Fixed `run_models.py` `BASE_DIR` path from `parents[1]` to `parents[2]` to account for the `scripts/` → `scripts/python/` reorganization; updated the inline comment accordingly.
+- Updated `ARCHITECTURE.md` directory layout to reflect the current `scripts/python/`, `scripts/bash/`, `scripts/powershell/`, `tests/sql/data_quality/`, and `tests/python/unit/` structure.
 
 ---
 

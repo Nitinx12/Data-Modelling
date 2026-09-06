@@ -37,9 +37,10 @@ flowchart LR
    in one script, run in its own transaction.
 
 3. **Data quality (`run_data_quality_loops.py`)** — Executes the
-   read only SQL "loops" in `tests/*_lp_*.sql`, which raise a `NOTICE`
-   per failed check plus a rollup line. The script parses those notices
-   into a pass/fail summary — it never modifies data.
+   read only SQL "loops" in `tests/sql/data_quality/*_lp_*.sql`, which
+   raise a `NOTICE` per failed check plus a rollup line. The script
+   parses those notices into a pass/fail summary — it never modifies
+   data.
 
 4. **Log housekeeping (`monitor_logs.sh`)** — All three Python scripts
    log through `utils.logger` into `logs/`. This shell script reports on
@@ -66,13 +67,20 @@ project/
 │   ├── core/
 │   └── tests/
 ├── models/                # *.sql files run in sequence by run_models.py
-├── tests/                 # *_lp_*.sql data-quality loops
+├── sql/                   # bootstrap SQL (database, schema, analytics)
+│   ├── *.sql
+│   └── analytics/
+├── tests/
+│   ├── sql/data_quality/  # *_lp_*.sql data-quality loops
+│   └── python/unit/       # pytest unit tests for utils/
 ├── scripts/
-│   ├── monitor_logs.sh
-│   ├── pg_staging.py
-│   ├── run_data_quality_loops.py
-│   └── run_models.py
+│   ├── bash/              # *.sh: monitor_logs, health_check, security_check, setup_dev
+│   ├── powershell/        # *.ps1 equivalents of the bash scripts
+│   └── python/            # *.py: pg_staging, run_models, run_data_quality_loops
+├── gx/                    # Great Expectations suites + runner.py
 ├── utils/                 # connection.py, engine.py, logger.py
+├── docs/                  # data catalog, schema, ERD, scripts, changelog
+├── data/                  # seed inputs / sample data
 └── pyproject.toml
 ```
 
