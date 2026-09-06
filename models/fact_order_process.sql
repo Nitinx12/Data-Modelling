@@ -21,6 +21,8 @@ CREATE SCHEMA IF NOT EXISTS core;
 -- =====================================================================
 -- 1. DDL — core.fact_order_process
 -- =====================================================================
+DROP TABLE IF EXISTS core.fact_order_process CASCADE;
+
 CREATE TABLE IF NOT EXISTS core.fact_order_process (
     order_process_key        BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     order_id                 VARCHAR(100) NOT NULL,

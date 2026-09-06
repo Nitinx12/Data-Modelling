@@ -170,9 +170,9 @@ FROM tmp_orders_final AS O
 LEFT JOIN tmp_line_items_final AS OI
     ON O."OrderID" = OI."OrderID"
 LEFT JOIN core.dim_customers AS C
-    ON C.customer_id = O."CustomerID"
+    ON C.customer_name = O."CustomerName"
 LEFT JOIN core.dim_products AS P
-    ON P.product_code = OI."ProductCode"
+    ON P.product_name = OI."ProductName"
 -- fallback key for products missing from the catalog
 CROSS JOIN (SELECT product_key FROM core.dim_products WHERE product_code = 'UNKNOWN') AS UNK
 LEFT JOIN core.dim_orders_flag AS F

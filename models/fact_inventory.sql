@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS core.fact_inventory (
     source_updated_at   TIMESTAMP,
     dw_created_at       TIMESTAMP  NOT NULL DEFAULT now(),
     dw_updated_at       TIMESTAMP  NOT NULL DEFAULT now(),
-    CONSTRAINT uq_fact_inventory_product_period UNIQUE (product_code, period_month)
+    CONSTRAINT uq_fact_inventory_product_period UNIQUE (product_name, period_month)
 );
 
 COMMENT ON TABLE core.fact_inventory IS 'Product inventory fact, SCD Type 1 (overwrite on change). Grain: one row per product per month.';
@@ -65,19 +65,7 @@ inventory_unpivoted AS(
         ('2025-09', T."2025-09"),
         ('2025-10', T."2025-10"),
         ('2025-11', T."2025-11"),
-        ('2025-12', T."2025-12"),
-        ('2026-01', T."2026-01"),
-        ('2026-02', T."2026-02"),
-        ('2026-03', T."2026-03"),
-        ('2026-04', T."2026-04"),
-        ('2026-05', T."2026-05"),
-        ('2026-06', T."2026-06"),
-        ('2026-07', T."2026-07"),
-        ('2026-08', T."2026-08"),
-        ('2026-09', T."2026-09"),
-        ('2026-10', T."2026-10"),
-        ('2026-11', T."2026-11"),
-        ('2026-12', T."2026-12")
+        ('2025-12', T."2025-12")
     ) AS U(period, quantity)
 )
 INSERT INTO core.fact_inventory (
@@ -95,8 +83,8 @@ SELECT
     NULLIF(I."update_at", '')::TIMESTAMP
 FROM inventory_unpivoted AS I
 LEFT JOIN core.dim_products AS P
-    ON P.product_code = I."ProductCode"
-ON CONFLICT (product_code, period_month) DO UPDATE SET
+    ON P.product_name = I."ProductName"
+ON CONFLICT (product_name, period_month) DO UPDATE SET
     product_key         = EXCLUDED.product_key,
     quantity            = EXCLUDED.quantity,
     source_updated_at   = EXCLUDED.source_updated_at,
