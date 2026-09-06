@@ -74,13 +74,13 @@ Reading that snapshot: emails and order statuses have blanks, a ship date is set
 Each file is a plain `DO` block, so run it with `psql`:
 
 ```
-psql -d your_database -f 01_lp_required_text_checks.sql
+psql -d your_database -f tests/sql/data_quality/01_lp_required_text_checks.sql
 ```
 
 Run all five back to back for a full picture of `core` and `staging` in one pass:
 
 ```
-for f in 0*_lp_*.sql; do psql -d your_database -f "$f"; done
+for f in tests/sql/data_quality/0*_lp_*.sql; do psql -d your_database -f "$f"; done
 ```
 
 ## Design notes

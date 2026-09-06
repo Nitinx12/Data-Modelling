@@ -45,20 +45,20 @@ each one documents constraints and caveats that aren't obvious from the code alo
 ## Commands
 
 ```bash
-uv run pg_staging.py                          # Mongo -> staging, incremental via update_at
-uv run scripts/run_models.py                  # runs models/*.sql in dependency order
-uv run scripts/run_data_quality_loops.py      # runs tests/data_quality/*_lp_*.sql, read-only
-uv run main.py                                # staging -> models -> quality, in sequence
-./health_check.sh --deep                      # verify deps + row counts, read-only
-./security_check.sh                           # scan for leaked creds/secrets, read-only
-./monitor_logs.sh clean --dry-run             # preview log cleanup, deletes nothing
+uv run scripts/python/pg_staging.py                          # Mongo -> staging, incremental via update_at
+uv run scripts/python/run_models.py                  # runs models/*.sql in dependency order
+uv run scripts/python/run_data_quality_loops.py      # runs tests/sql/data_quality/*_lp_*.sql, read-only
+uv run scripts/python/main.py                                # staging -> models -> quality, in sequence
+./scripts/bash/health_check.sh --deep                      # verify deps + row counts, read-only
+./scripts/bash/security_check.sh                           # scan for leaked creds/secrets, read-only
+./scripts/bash/monitor_logs.sh clean --dry-run             # preview log cleanup, deletes nothing
 ```
 
 Always use `uv run` for Python scripts in this repo, not a bare `python`/`python3` call.
 
 On a POSIX shell or WSL, the `Makefile` wraps all of the above as short targets
 (`make staging`, `make models`, `make quality`, `make pipeline`, `make health`,
-`make security`, `make setup`, `make logs`) — run `make help` for the full list.
+`make security`, `make setup`, `make logs`, `make test`) — run `make help` for the full list.
 Windows contributors without `make` should keep using the commands or `.ps1`
 equivalents directly.
 
@@ -71,7 +71,7 @@ equivalents directly.
   separate logging setup in a new script.
 - **Data quality scripts are read-only by design** — they audit via `RAISE NOTICE`
   and never `CREATE`/`ALTER`/`DROP`/`UPDATE`. Preserve that invariant in any change.
-- **Catalog-driven, not hardcoded:** the five PL/pgSQL loops in `tests/data_quality/`
+- **Catalog-driven, not hardcoded:** the five PL/pgSQL loops in `tests/sql/data_quality/`
   discover tables/columns/constraints from `information_schema`/`pg_catalog` at
   runtime. Don't refactor them toward a hardcoded table list — the whole point is that
   new tables are covered automatically.
@@ -92,7 +92,7 @@ equivalents directly.
   Conventions above).
 - Prefer the `::VARCHAR` style cast over `CAST(value AS VARCHAR)` in SQLFluff linted
   files.
-- Anything under `tests/data_quality/` stays read only. No `INSERT`, `UPDATE`,
+- Anything under `tests/sql/data_quality/` stays read only. No `INSERT`, `UPDATE`,
   `DELETE`, or DDL of any kind in those files.
 
 **Bash**

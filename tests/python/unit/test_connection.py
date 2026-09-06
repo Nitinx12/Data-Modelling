@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tests.helpers import reload_connection
+from tests.python.helpers import reload_connection
 
 
 class TestGetPostgresEngine:

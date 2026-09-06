@@ -14,6 +14,10 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 
 ### Added
 - PowerShell equivalents for all Bash ops scripts (`health_check.ps1`, `security_check.ps1`, `monitor_logs.ps1`, `setup_dev.ps1`) for cross-platform support.
+- `scripts/bash/pipeline.sh` as a lightweight wrapper for the main pipeline.
+- `scripts/bash/db_reset.sh` for rapid environment teardown and rebuild.
+- `make gx` target in Makefile to execute Great Expectations suites.
+- `make test` and `make test-cov` targets for Python unit tests.
 
 ### Changed
 - Removed hyphens from prose in all project markdown files to match project conventions.
@@ -21,6 +25,9 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 - Standardized dimension joins in `fact_orders` and `fact_inventory` to use business IDs (natural keys) instead of names.
 - Extended `fact_inventory` unpivot logic to cover 2026 monthly columns.
 - Updated documentation in `Schema.md` and `data_catlog.md` to reflect these changes.
+- Reorganized `scripts/` directory into `python/`, `bash/`, and `powershell/` subdirectories.
+- Reorganized `tests/` directory into `sql/data_quality/` and `python/unit/`.
+- Updated `Makefile`, `docs/scripts.md`, and `CLAUDE.md` to reflect new script and test paths.
 
 ### Fixed
 - Fixed surrogate key inconsistency in `fact_order_process` by switching from `customer_id` (natural) to `customer_key` (surrogate).

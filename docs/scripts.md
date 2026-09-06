@@ -3,7 +3,7 @@
 Reference for the scripts in this repo. For how they fit together,
 see `ARCHITECTURE.md`.
 
-## `pg_staging.py`
+## `scripts/python/pg_staging.py`
 
 Extracts documents from MongoDB and loads them into Postgres staging
 tables — one table per collection, same name, no suffixes.
@@ -16,8 +16,8 @@ tables — one table per collection, same name, no suffixes.
   every run, upserted by `_id`.
 
 ```bash
-uv run pg_staging.py                       # every collection in the Mongo db
-uv run pg_staging.py --collection Address  # just one collection
+uv run scripts/python/pg_staging.py                       # every collection in the Mongo db
+uv run scripts/python/pg_staging.py --collection Address  # just one collection
 ```
 
 | | |
@@ -27,15 +27,15 @@ uv run pg_staging.py --collection Address  # just one collection
 | Console | Rich live status per collection + summary table |
 | Exit code | `1` if any collection fails; other failures don't stop the run |
 
-## `run_models.py`
+## `scripts/python/run_models.py`
 
 Runs the warehouse model `.sql` files in `models/` against Postgres, in
 a fixed dependency order (dims before the facts that use them).
 
 ```bash
-uv run scripts/run_models.py
-uv run scripts/run_models.py --only fact_orders.sql fact_less_fact.sql
-uv run scripts/run_models.py --continue-on-error
+uv run scripts/python/run_models.py
+uv run scripts/python/run_models.py --only fact_orders.sql fact_less_fact.sql
+uv run scripts/python/run_models.py --continue-on-error
 ```
 
 - `--only` restricts the run to the listed files, still in sequence order.
@@ -51,7 +51,7 @@ uv run scripts/run_models.py --continue-on-error
 | Console | Rich status line per model + summary table |
 | Exit code | `1` if any model fails |
 
-## `run_data_quality_loops.py`
+## `scripts/python/run_data_quality_loops.py`
 
 Runs every read only SQL loop file matching `tests/data_quality/*_lp_*.sql`,
 in order. Each loop raises a `NOTICE` per failed check plus a rollup line
@@ -59,7 +59,7 @@ like `"... loop complete: 2 failed check(s), 16 failed row(s)."`; this
 script parses those notices — it never writes to the database.
 
 ```bash
-uv run scripts/run_data_quality_loops.py
+uv run scripts/python/run_data_quality_loops.py
 ```
 
 | | |
@@ -69,19 +69,19 @@ uv run scripts/run_data_quality_loops.py
 | Console | Rich rule per loop, red `FAIL` lines, final summary table |
 | Exit behavior | Prints an overall PASS/FAIL summary; does not raise on failed checks |
 
-## `monitor_logs.sh`
+## `scripts/bash/monitor_logs.sh`
 
 Reports on, or cleans up, the log files written by the three scripts
 above. The most recently modified log file is always kept, no matter its
 age or size.
 
 ```bash
-./monitor_logs.sh                 # summary report (default, read-only)
-./monitor_logs.sh summary         # same as above
-./monitor_logs.sh clean           # delete flagged logs (asks to confirm)
-./monitor_logs.sh clean --dry-run # preview only, deletes nothing
-./monitor_logs.sh clean -y        # delete without confirmation
-./monitor_logs.sh -h              # help
+./scripts/bash/monitor_logs.sh                 # summary report (default, read only)
+./scripts/bash/monitor_logs.sh summary         # same as above
+./scripts/bash/monitor_logs.sh clean           # delete flagged logs (asks to confirm)
+./scripts/bash/monitor_logs.sh clean --dry-run # preview only, deletes nothing
+./scripts/bash/monitor_logs.sh clean -y        # delete without confirmation
+./scripts/bash/monitor_logs.sh -h              # help
 ```
 
 A file is flagged for deletion if it's older than `MAX_AGE_DAYS` (default
@@ -99,7 +99,7 @@ MAX_AGE_DAYS=14 MAX_SIZE_MB=10 ./monitor_logs.sh clean
 | Default size limit | 5 MB |
 | Always kept | the single most recently modified file |
 
-## `main.py`
+## `scripts/python/main.py`
 
 One-shot pipeline orchestrator. Runs `pg_staging.py` → `run_models.py` →
 `run_data_quality_loops.py` in sequence, as a single Python process that
@@ -108,11 +108,11 @@ proceeding. Useful for cron, CI, and ad-hoc end-to-end runs without
 typing three `make` invocations.
 
 ```bash
-uv run main.py                            # full pipeline, stop on first failure
-uv run main.py --skip-staging             # models + quality only
-uv run main.py --skip-quality             # staging + models only
-uv run main.py --continue-on-error        # keep going past model failures
-uv run main.py --help-stages              # show what each stage does
+uv run scripts/python/main.py                            # full pipeline, stop on first failure
+uv run scripts/python/main.py --skip-staging             # models + quality only
+uv run scripts/python/main.py --skip-quality             # staging + models only
+uv run scripts/python/main.py --continue-on-error        # keep going past model failures
+uv run scripts/python/main.py --help-stages              # show what each stage does
 ```
 
 Or via the registered entry point: `uv run pipeline` (or just `pipeline`

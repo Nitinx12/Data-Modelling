@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.helpers import reload_engine
+from tests.python.helpers import reload_engine
 
 
 class TestPostgresEnvLoading:

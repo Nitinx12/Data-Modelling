@@ -25,7 +25,7 @@ import sys
 import time
 from pathlib import Path
 
-SCRIPTS_DIR = Path(__file__).resolve().parent / "scripts"
+SCRIPTS_DIR = Path(__file__).resolve().parent
 
 
 def run(script: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
