@@ -94,7 +94,9 @@ def main() -> int:
     if not args.skip_quality:
         # --strict: a failed data quality check must fail the whole pipeline,
         # not just print a red table. This is what cron/CI inspects.
-        stages.append(("DATA QUALITY", SCRIPTS_DIR / "run_data_quality_loops.py", ["--strict"]))
+        stages.append(
+            ("DATA QUALITY", SCRIPTS_DIR / "run_data_quality_loops.py", ["--strict"])
+        )
 
     if not stages:
         print("Error: all stages disabled. Nothing to do.", file=sys.stderr)

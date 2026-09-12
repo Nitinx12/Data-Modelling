@@ -11,5 +11,9 @@ from utils.connection import get_postgres_engine
 
 engine = get_postgres_engine()
 with engine.connect() as conn:
-    result = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_schema = 'staging' AND table_name = 'inventory';"))
+    result = conn.execute(
+        text(
+            "SELECT column_name FROM information_schema.columns WHERE table_schema = 'staging' AND table_name = 'inventory';"
+        )
+    )
     print([r[0] for r in result])

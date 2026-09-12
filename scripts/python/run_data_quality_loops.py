@@ -47,7 +47,9 @@ log = get_logger("data_quality", subdir="tests", console_level=logging.INFO)
 
 def get_loop_files(project_root: Path) -> list[Path]:
     """Return the numbered data quality loop files in execution order."""
-    loop_files = sorted((project_root / "tests" / "sql" / "data_quality").glob("*_lp_*.sql"))
+    loop_files = sorted(
+        (project_root / "tests" / "sql" / "data_quality").glob("*_lp_*.sql")
+    )
     if not loop_files:
         raise FileNotFoundError(
             "No data quality loop files matching '*_lp_*.sql' were found in tests/sql/data_quality/."
