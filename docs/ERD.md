@@ -10,7 +10,7 @@ erDiagram
     dim_products ||--o{ fact_inventory : "product_key"
     dim_products ||--o{ fact_orders : "product_key"
     dim_customers ||--o{ fact_orders : "customer_key"
-    dim_customers ||--o{ fact_order_process : "customer_id (natural key, not surrogate)"
+    dim_customers ||--o{ fact_order_process : customer_key
     dim_orders_flag ||--o{ fact_orders : "flag_key"
     dim_geo ||--o{ fact_orders : "ship_geo_key"
     dim_geo ||--o{ fact_orders : "bill_geo_key"
@@ -99,7 +99,7 @@ erDiagram
     fact_order_process {
         bigint order_process_key PK
         varchar order_id UK "business key"
-        varchar customer_id FK
+        bigint customer_key FK
         varchar ship_mode
         varchar invoice_id
         date order_date
@@ -140,7 +140,7 @@ erDiagram
 - **`||--o{`** = one dimension row relates to zero-or-many fact rows (standard star-schema cardinality). No fact table in this model has a mandatory-one-to-mandatory-one relationship back to a dimension — every FK is nullable, since a join can fail to resolve.
 - **Role-playing dimension:** `dim_geo` appears **twice** against `fact_orders` (`ship_geo_key`, `bill_geo_key`) — the same physical table used in two different business roles on one fact row.
 - **Fact constellation, not a single star:** `fact_campaign_spend` and `fact_less_fact` both reference `dim_campaign`/`dim_products` but are **never joined to each other**. They're connected only by conforming to the same dimensions — the defining feature of a galaxy schema over a single star schema.
-- **Odd one out:** `fact_order_process.customer_id` is the only fact-to-dimension link in the model built on a **natural/business key** (`dim_customers.customer_id`) rather than the surrogate key (`dim_customers.customer_key`) that every other fact table uses. Functionally fine (it's still unique + indexed), but inconsistent with the rest of the model's key strategy.
+- **Key strategy:** every fact to dimension link in the model, including `fact_order_process`, now uses the surrogate key (`dim_customers.customer_key` and friends). Dimensions are still *resolved* via name joins at load time — the staging sources carry names, not IDs.
 - **Degenerate dimensions:** `order_id` (on `fact_orders` and `fact_order_process`) and `invoice_id` (on `fact_order_process`) are degenerate — carried directly on the fact with no dimension table of their own.
 
 ## Fact Table Types in This Model

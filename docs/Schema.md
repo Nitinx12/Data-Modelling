@@ -76,7 +76,7 @@ erDiagram
     fact_order_process {
         bigint order_process_key PK
         varchar order_id UK
-        varchar customer_id FK
+        bigint customer_key FK
         varchar invoice_id
         numeric amount
     }
@@ -103,7 +103,7 @@ erDiagram
     dim_orders_flag ||--o{ fact_orders         : flag_key
     dim_geo         ||--o{ fact_orders         : ship_geo_key
     dim_geo         ||--o{ fact_orders         : bill_geo_key
-    dim_customers   ||--o{ fact_order_process  : customer_id
+    dim_customers   ||--o{ fact_order_process  : customer_key
     dim_products    ||--o{ fact_inventory      : product_key
     dim_campaign    ||--o{ fact_campaign_spend : campaign_key
     dim_campaign    ||--o{ fact_less_fact      : campaign_key
@@ -127,13 +127,16 @@ Note `dim_geo` joins to `fact_orders` **twice** (ship to and bill to), which is 
 - **Grain:** one row per order (`order_id`)
 - **Sources:** orders (header), `staging.shipments`, `staging.invoices`, `staging.payments`
 - **Pattern:** accumulating snapshot — milestone dates (`ship_date`, `delivery_date`, `invoice_date`, `pay_date`) and computed lag measures (`days_order_to_ship`, `days_ship_to_delivery`, `days_order_to_invoice`, `days_invoice_to_pay`) are updated on the same row as the order progresses
-- **Note:** resolves `customer_id` (the natural key) rather than `customer_key` — see Known Issues below
+- **Note:** stores `customer_key` (the surrogate key), resolved via a name join to
+  `dim_customers` (staging orders carry `CustomerName`, not an ID). Milestone columns are
+  COALESCE-guarded so a NULL from the source cannot overwrite a previously-loaded milestone.
 
 ### `fact_inventory`
 - **Grain:** one row per product per month
 - **Source:** `staging.inventory`, which arrives wide/pivoted (one column per month: `2025-01` … `2025-12`) and is unpivoted via `CROSS JOIN LATERAL` before loading
 - **Measure:** `quantity`
-- **Currently covers:** 2025 and 2026.
+- **Currently covers:** 2025 only — `staging.inventory` has no 2026 columns yet; extend the
+  unpivot list when 2026 data lands.
 
 ### `fact_campaign_spend`
 - **Grain:** one row per campaign per day
@@ -168,10 +171,10 @@ One row per distinct `(channel_code, status, priority)` combination actually obs
 
 ## 5. Known Issues / Open Items
 
-- **`fact_order_process` uses `customer_id` (natural key) as its FK**, while `fact_orders` uses `customer_key` (surrogate key) to reference the same dimension. Both work, but it's inconsistent — recommend standardizing on `customer_key` everywhere for clean conformance.
+- **Key strategy (resolved):** `fact_order_process` now stores `customer_key` like every other fact. The remaining convention — dimensions resolved via **name joins** rather than business IDs — applies to all facts equally; see `.claude/rules/sql-conventions.md`.
 - **`dim_customers` dedup ranks by the *address* table's `update_at`** (`staging.addres.update_at`), not the customer master's own timestamp. All records are kept, and rows with missing timestamps are handled via `NULLS LAST` in the ranking.
 - **`dim_geo` has no dedicated region dimension** — `region_name` is stored as free text on both `dim_geo` and `dim_customers` rather than as a foreign key to a shared region table. If `staging.region` (id → region name lookup) is meant to formalize this, it isn't wired in yet.
-- Several staging tables have no load script at all yet — see `data_catalog.md` for the full list and hypotheses on what they are.
+- Several staging tables have no load script at all yet (`dim_orders`, `exchange_rate`, `invoice_inlines`, `region`, `security`, `sheet_1`, `target_revenue`) — see `data_catlog.md` §5 for the full list.
 
 ---
 
