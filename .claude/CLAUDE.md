@@ -145,24 +145,37 @@ These are documented, intentional-for-now inconsistencies. Several look like bug
 are tracked as open items — don't silently correct them as a side effect of an
 unrelated change:
 
-- **Mixed key strategy:** `fact_order_process.customer_id` joins to `dim_customers` on
-  the **natural key**, while every other fact uses the **surrogate key**
-  (`customer_key`). Both work; it's an open standardization item, not a defect to patch
-  in passing.
+- **Mixed key strategy:** `fact_order_process` now stores the surrogate `customer_key`
+  (the natural-key `customer_id` column was migrated away). What remains open is that
+  all facts resolve dimensions by **name joins** (`customer_name`, `product_name`)
+  rather than business IDs — documented in `.claude/rules/sql-conventions.md`, not a
+  defect to patch in passing.
 - **Staging table/column typos** (`campaing_logs`, `campaing_sku`, `customer_contach`,
   `addres`, `cust_master`) are inherited from the source system. See the glossary in
   `data_catlog.md` §5 — do not "correct" the spelling; that would break every script
   referencing them.
-- **Silent row exclusion:** `dim_products` drops rows with NULL/`<= 0` `unit_price`;
-  `dim_customers` drops joined rows with a NULL `update_at` from the address table.
-  Both are load-time filters, not bugs — flag them if asked to investigate unmatched
-  keys, don't remove the filter unprompted.
 - **`fact_inventory` is hard-coded to 2025 monthly columns** (`staging.inventory` has
-  no 2026 columns yet). The `LATERAL (VALUES ...)` unpivot list needs extending when
-  2026 data lands — don't assume this is stale code to delete.
-- **`fact_less_fact` dedup gap:** `ON CONFLICT (campaign_key, product_key) DO NOTHING`
-  doesn't catch duplicate NULL/NULL pairs (unmatched campaign or product), since SQL
-  nulls are never equal to each other.
+  no 2026 columns yet — neither does Mongo, so there is no 2026 data to lose). The
+  `LATERAL (VALUES ...)` unpivot list needs extending when 2026 data lands — don't
+  assume this is stale code to delete. Earlier docs claiming 2026 coverage was
+  "extended" were wrong; that has been corrected in `data_catlog.md`.
+- **MongoDB deletions never propagate:** `pg_staging.py` upserts by `_id` with an
+  `update_at` watermark — a document deleted in Mongo simply stops appearing in the
+  extract, and its row survives forever in `staging` and downstream in `core`
+  (verified: `staging.campaing_sku` holds 30 rows against 6 live Mongo documents).
+  Fixing this needs a design decision (soft-delete flag in Mongo, periodic full
+  refresh, or delete-log collection) — do not bolt a half solution onto the
+  incremental load.
+- **Seven staging tables have no load script:** `dim_orders`, `exchange_rate`,
+  `invoice_inlines`, `region`, `security`, `sheet_1`, `target_revenue` are extracted
+  into `staging` but consumed by no model. Whether they are future dimensions/facts
+  or dead weight is a data-owner decision — do not write load scripts for them
+  unprompted.
+- **`dim_customers` dedup ranks on the address table's `update_at` only:** the
+  `ROW_NUMBER` dedup orders by the joined `addres.update_at` and ignores
+  `cust_master`'s own (unused) `update_at`. A newer master record with an unchanged
+  address loses to an older row with a newer address edit. Whether the ranking should
+  use `GREATEST` of both is an open data-owner question.
 
 ## Changelog Requirement
 
