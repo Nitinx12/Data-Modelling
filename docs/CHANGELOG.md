@@ -13,6 +13,7 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 ## [Unreleased]
 
 ### Added
+- `docs/CI_CD.md`: production readiness and CI/CD roadmap, verified against the repository on 2026-09-12, covering the data quality `--strict` gate, CI integration/security/GX jobs, CI source seeding, and a prioritized plan.
 - PowerShell equivalents for all Bash ops scripts (`health_check.ps1`, `security_check.ps1`, `monitor_logs.ps1`, `setup_dev.ps1`) for cross-platform support.
 - `scripts/bash/pipeline.sh` as a lightweight wrapper for the main pipeline.
 - `scripts/bash/db_reset.sh` for rapid environment teardown and rebuild.
@@ -30,6 +31,7 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 - Updated `Makefile`, `docs/scripts.md`, and `CLAUDE.md` to reflect new script and test paths.
 
 ### Fixed
+- Corrected stale test paths: `.github/workflows/ci.yml` pytest steps and `pyproject.toml` `testpaths` pointed at `tests/unit`, which no longer exists after the `tests/` reorganization; updated both to `tests/python/unit`.
 - Fixed surrogate key inconsistency in `fact_order_process` by switching from `customer_id` (natural) to `customer_key` (surrogate).
 - Fixed duplicate risk on NULL foreign keys in `fact_less_fact` by replacing `ON CONFLICT` with a `WHERE NOT EXISTS` check.
 - Fixed `fact_order_process` `CREATE TABLE IF NOT EXISTS` not picking up the new `customer_key` column when the table already existed from a prior run; added a `DROP TABLE IF EXISTS core.fact_order_process CASCADE;` at the top of the DDL block so the table is rebuilt with the current schema.
