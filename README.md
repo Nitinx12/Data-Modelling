@@ -23,7 +23,22 @@ only after every load — and a red check fails the whole pipeline.
 ## Tech stack
 
 <p align="center">
-  <img src="assets/techstack.svg" alt="Tech stack" width="640">
+  <a href="https://www.mongodb.com/"><img src="https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white" alt="MongoDB"></a>
+  <a href="https://www.postgresql.org/"><img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python%203.13-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.13"></a>
+  <a href="https://pandas.pydata.org/"><img src="https://img.shields.io/badge/pandas-150458?style=for-the-badge&logo=pandas&logoColor=white" alt="pandas"></a>
+  <a href="https://www.sqlalchemy.org/"><img src="https://img.shields.io/badge/SQLAlchemy-D71F00?style=for-the-badge&logo=sqlalchemy&logoColor=white" alt="SQLAlchemy"></a>
+</p>
+
+<p align="center">
+  <a href="https://docs.astral.sh/uv/"><img src="https://img.shields.io/badge/uv-DE5FE9?style=for-the-badge&logo=uv&logoColor=white" alt="uv"></a>
+  <a href="https://pymongo.readthedocs.io/"><img src="https://img.shields.io/badge/PyMongo-499E34?style=for-the-badge&logo=pymongo&logoColor=white" alt="PyMongo"></a>
+  <a href="https://github.com/Textualize/rich"><img src="https://img.shields.io/badge/Rich-3D4451?style=for-the-badge&logo=rich&logoColor=white" alt="Rich"></a>
+  <a href="https://docs.astral.sh/ruff/"><img src="https://img.shields.io/badge/ruff-261230?style=for-the-badge&logo=ruff&logoColor=FCC24B" alt="ruff"></a>
+  <a href="https://docs.pytest.org/"><img src="https://img.shields.io/badge/pytest-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white" alt="pytest"></a>
+  <a href="https://github.com/features/actions"><img src="https://img.shields.io/badge/GitHub%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white" alt="GitHub Actions"></a>
+  <a href="https://www.gnu.org/software/bash/"><img src="https://img.shields.io/badge/Bash-4EAA25?style=for-the-badge&logo=gnubash&logoColor=white" alt="Bash"></a>
+  <a href="https://learn.microsoft.com/powershell/"><img src="https://img.shields.io/badge/PowerShell-5391FE?style=for-the-badge&logo=powershell&logoColor=white" alt="PowerShell"></a>
 </p>
 
 ## How it flows

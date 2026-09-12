@@ -28,6 +28,7 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 - `make test` and `make test-cov` targets for Python unit tests.
 
 ### Changed
+- Swapped the README tech stack image for official shields.io logo badges (MongoDB, PostgreSQL, Python, pandas, SQLAlchemy, uv, PyMongo, Rich, ruff, pytest, GitHub Actions, Bash, PowerShell) and removed the now unused `assets/techstack.svg`.
 - Polished `README.md`: added a tech stack image (`assets/techstack.svg`), a colour coded mermaid flow diagram of the pipeline with the DQ pass/fail fork and the read only ops scripts, a compact common commands table, and an annotated repo structure tree. Overview prose tightened and hyphens removed from carried over table text.
 - Swapped the README logo for `assets/new_logo.png`.
 - Replaced `docs/GIT_WORKFLOW.md` with a short, to the point workflow guide (branches, everyday loop, commit rules, pre push checks, merge) instead of the long form version.
