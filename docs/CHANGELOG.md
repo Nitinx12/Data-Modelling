@@ -13,6 +13,10 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 ## [Unreleased]
 
 ### Added
+- `docs/OPERATIONS.md`: to the point runbook — pipeline stages and their failure conditions, daily checks, log maintenance, what to do when `make pipeline` exits 1, and a cron example.
+- `docs/TROUBLESHOOTING.md`: symptom → cause → fix for setup, environment, pipeline, and CI problems, including the known quirks (broken WSL venv, psql on Windows bash, quarantine tables, non propagating Mongo deletes).
+- `docs/DECISIONS.md`: decision log — ten settled design decisions (D1–D10) and five open items awaiting a data owner (O1–O5), each with its evidence.
+- README docs table rows for the three new guides.
 - `docs/GIT_WORKFLOW.md`: git workflow guide adapted to this repo (branching, Conventional Commits, hooks, releases), with deliberate omissions recorded (semantic-release, VERSION file, commitlint, sqlfluff hook).
 - Production repo files: `.env.example` (mirrors `utils/engine.py` variables), `.gitattributes` (LF normalization), `.github/CODEOWNERS`, `.github/PULL_REQUEST_TEMPLATE.md`, `.github/ISSUE_TEMPLATE/` (bug report, feature request), `CONTRIBUTING.md`, `SECURITY.md`, `.pre-commit-config.yaml` (ruff + pre-commit hooks).
 - README docs table rows for `CI_CD.md` and `GIT_WORKFLOW.md`; fixed stale `tests/data_quality/` path in the `TESTS.md` row.
