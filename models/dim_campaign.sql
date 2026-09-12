@@ -40,7 +40,7 @@ WITH campaign_dedup AS (
     SELECT
         *,
         ROW_NUMBER() OVER (
-            PARTITION BY "CampaignName" ORDER BY "update_at" DESC
+            PARTITION BY "CampaignName" ORDER BY "update_at" DESC NULLS LAST
         ) AS rnk
     FROM staging.campaing_logs
 ),

@@ -15,7 +15,7 @@ SELECT 'fact_orders - missing ship_geo_key',                   COUNT(*) FROM cor
 UNION ALL
 SELECT 'fact_orders - missing bill_geo_key',                   COUNT(*) FROM core.fact_orders WHERE bill_geo_key IS NULL
 UNION ALL
-SELECT 'fact_order_process - missing customer_id',             COUNT(*) FROM core.fact_order_process WHERE customer_id IS NULL
+SELECT 'fact_order_process - missing customer_key',             COUNT(*) FROM core.fact_order_process WHERE customer_key IS NULL
 UNION ALL
 SELECT 'fact_order_process - undelivered orders',              COUNT(*) FROM core.fact_order_process WHERE delivery_date IS NULL
 UNION ALL

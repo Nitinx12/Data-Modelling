@@ -1,0 +1,22 @@
+# Normalize line endings: LF in the repo and in working trees, so Windows
+# checkouts stop producing "LF will be replaced by CRLF" warnings and diffs
+# stay byte identical across platforms.
+* text=auto eol=lf
+
+# Language / diff hints for GitHub and git
+*.sql linguist-language=SQL
+*.py diff=python
+*.ipynb -diff
+
+# Binaries
+*.parquet binary
+*.xlsx binary
+*.xls binary
+*.png binary
+*.mp4 binary
+
+# Generated data files
+*.csv binary linguist-generated=true
+
+# Docs are documentation for repo language stats
+docs/** linguist-documentation

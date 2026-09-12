@@ -10,17 +10,22 @@ tables. The warehouse uses the `staging` schema for source-shaped data and the
 
 - `models/`: executable PostgreSQL dimension and fact load scripts. Run all
   dimensions before their dependent facts.
-- `tests/unit/`: pytest unit tests for `utils/` modules (engine, connection, logger).
-- `tests/data_quality/`: executable PostgreSQL data-quality SQL. Five focused
+- `tests/python/unit/`: pytest unit tests for `utils/` modules (engine, connection,
+  logger).
+- `tests/sql/data_quality/`: executable PostgreSQL data-quality SQL. Five focused
   dynamic `DO` loops run after every warehouse load in numeric order.
 - `gx/`: Great Expectations suite — YAML expectation suites and a runner script.
 - `sql/`: database and schema bootstrap scripts.
-- `scripts/`: ingestion and operational scripts.
+- `scripts/python/`: ingestion and pipeline scripts (`pg_staging.py`, `run_models.py`,
+  `run_data_quality_loops.py`, `main.py`).
+- `scripts/bash/`, `scripts/powershell/`: operational scripts (health check, security
+  scan, log monitoring, dev setup), kept in lockstep across the two shells.
 - `docs/`: data catalog, schema, and ERD. Update these when the warehouse
   grain, keys, or business rules change.
 - `utils/`: shared Python configuration, connections, and logging.
-- `main.py`: one-shot pipeline orchestrator — runs `pg_staging.py` →
-  `run_models.py` → `run_data_quality_loops.py` in sequence.
+- `scripts/python/main.py`: one-shot pipeline orchestrator — runs `pg_staging.py` →
+  `run_models.py` → `run_data_quality_loops.py` in sequence, failing on the first
+  non-zero exit (the quality stage runs with `--strict`).
 
 ## SQL conventions
 
@@ -66,7 +71,7 @@ tables. The warehouse uses the `staging` schema for source-shaped data and the
 
 ## Data-quality checks
 
-- Run the five SQL loops in `tests/data_quality/` in numeric order after
+- Run the five SQL loops in `tests/sql/data_quality/` in numeric order after
   loading the warehouse. Each uses a read-only `DO` loop over the `core` and
   `staging` schemas and reports aggregate counts with `RAISE NOTICE`.
 - A non-zero reported count is a failed check; scripts should report counts,
@@ -82,7 +87,7 @@ Assuming `ruff` as the Python formatter/linter since `uv` is already the
 package manager here — swap this line if the repo standardizes on `black`
 or something else instead.
 
-**Python** (`utils/`, `scripts/`)
+**Python** (`utils/`, `scripts/python/`)
 - Follow PEP 8; format and lint with `uv run ruff format` / `uv run ruff check`.
 - 4-space indentation, `snake_case` for functions/variables, `PascalCase` for
   classes, `UPPER_SNAKE_CASE` for module-level constants.
@@ -91,7 +96,7 @@ or something else instead.
 - No bare `except:` — catch specific exceptions and log via the shared
   `utils` logger rather than `print`.
 
-**Bash** (`scripts/`)
+**Bash** (`scripts/bash/`)
 - `#!/usr/bin/env bash` shebang, and `set -euo pipefail` right after it.
 - Quote every variable expansion (`"$var"`, `"${arr[@]}"`); prefer `[[ ]]`
   over `[ ]` for conditionals.
@@ -99,7 +104,7 @@ or something else instead.
   for exported/env constants.
 - Keep scripts `shellcheck`-clean before committing.
 
-**PowerShell** (`scripts/`)
+**PowerShell** (`scripts/powershell/`)
 - Use approved verbs for functions (`Get-`, `New-`, `Set-`, `Invoke-`, ...);
   `PascalCase` for function and parameter names.
 - `[CmdletBinding()]` plus a typed `param()` block for anything more than a
@@ -126,7 +131,7 @@ or something else instead.
   `feat(tests): add null-check for dim_customer`, `docs(erd): update fct_sales grain`.
 - Keep commits scoped to one model, test, or doc change — don't mix schema
   changes with unrelated refactors.
-- Run the affected model(s) and the relevant data-quality SQL in `tests/`
+- Run the affected model(s) and the relevant data-quality SQL in `tests/sql/data_quality/`
   locally before committing, whenever a local Postgres instance is available.
 - Never commit `.env`, credentials, or sample rows of real business/PII data
   pulled from `staging` or `core`.

@@ -153,12 +153,14 @@ dim_products ───┘
 - **Grain:** one row per product per month.
 - **Source:** `staging.inventory`, wide/pivoted (columns `"2025-01"` … `"2025-12"`), deduped per `ProductName`, then unpivoted via `CROSS JOIN LATERAL (VALUES ...)`.
 - **Load pattern:** SCD Type 1 upsert on (`product_name`, `period_month`). **Note:** the unique constraint is on `product_name`, not `product_key` — `product_key` is a resolved, non-authoritative column.
-- **Coverage note:** covers 2025 and 2026 months.
+- **Coverage note:** covers 2025 months only — `staging.inventory` (and the Mongo
+  collection behind it) has no 2026 columns yet, so the unpivot list stops at
+  `"2025-12"`. Extend the `LATERAL (VALUES ...)` list when 2026 data lands.
 
 | Column | Type | Notes |
 |---|---|---|
 | inventory_key | BIGINT (PK, identity) | |
-| product_key | BIGINT (FK → dim_products) | NULL if product unmatched (incl. filtered-out $0/NULL-price products) |
+| product_key | BIGINT (FK → dim_products) | NULL if product unmatched |
 | product_name | VARCHAR(200) | Part of natural key |
 | period_month | DATE | First-of-month, derived from pivoted column name |
 | quantity | BIGINT | |
@@ -189,14 +191,19 @@ dim_products ───┘
 ### 3.4 `core.fact_order_process`
 - **Grain:** one row per order — an **accumulating snapshot**, revisited and overwritten in place as the order moves order → ship → deliver → invoice → pay.
 - **Source:** union of `staging.orders_2025` + `staging.orders_2026`, LEFT JOIN latest `staging.shipments`, `staging.invoices`, `staging.payments` (each deduped to one row per key).
-- **Load pattern:** upsert on `order_id`; refreshed only when any milestone date or `amount` changes.
+- **Load pattern:** upsert on `order_id`; refreshed only when any milestone date, `amount`,
+  `customer_key`, `ship_mode`, or `invoice_id` changes. Milestone columns are
+  COALESCE-guarded (`EXCLUDED.x, existing.x`) so a NULL from the source cannot
+  overwrite a previously-loaded milestone; the lags are recomputed from the guarded
+  dates. Previously-loaded future-dated milestones are cleared by explicit self-heal
+  UPDATEs fed from the quarantine tables.
 - **Assumption stated in source:** `OrderID` is unique across the union of the two yearly order tables (no overlap).
 
 | Column | Type | Notes |
 |---|---|---|
 | order_process_key | BIGINT (PK, identity) | |
 | order_id | VARCHAR(100) | **Business key**, UNIQUE. Degenerate dimension — no separate order dim |
-| customer_id | VARCHAR(50) (FK → `dim_customers.customer_id`) | ⚠️ References the **natural key**, not `customer_key` — inconsistent with every other fact table in this model, which uses surrogate keys |
+| customer_key | BIGINT (FK → `dim_customers.customer_key`) | Resolved via a name join to `dim_customers` (staging orders carry `CustomerName`, not an ID) |
 | ship_mode | VARCHAR(100) | |
 | invoice_id | VARCHAR(100) | Degenerate dimension |
 | order_date / ship_date / delivery_date / invoice_date / pay_date | DATE | Milestone dates; later ones are NULL until the order reaches that stage |
@@ -236,12 +243,15 @@ dim_products ───┘
 | Area | Note |
 |---|---|
 | Join key inconsistency | Most facts join to `dim_customers`/`dim_products` by **name** (`customer_name`, `product_name`) rather than the stable business ID (`customer_id`, `product_code`). Names are not guaranteed unique/stable, unlike IDs. |
-| Surrogate key inconsistency | `fact_order_process.customer_id` is a FK to the customer dimension's **natural key**, while `fact_orders.customer_key` uses the **surrogate key**. Two different join conventions for the same relationship. |
-| Silent row exclusion | `dim_products` load drops any product with NULL or ≤ 0 `unit_price`; `dim_customers` load drops any joined row with NULL `update_at`. Both are silent — worth monitoring via the commented-out unmatched-key verification queries in each script. |
+| Surrogate key inconsistency (resolved) | `fact_order_process` now stores `customer_key` like every other fact. The remaining convention is that dimensions are *resolved* via name joins (`customer_name`, `product_name`) — see the join key row above. |
+| Silent row exclusion (resolved) | `dim_products` no longer drops rows with NULL/≤ 0 `unit_price` (the price is set to NULL, the row is kept); `dim_customers` no longer drops rows with a NULL address `update_at`. Monitor unmatched keys via the commented-out verification queries in each script. |
 | Possible mismatched join | `dim_products.category` is sourced from `staging.subcategory."category"`, joined on a subcategory-name match — confirm this is intentional rather than a copy-paste of the wrong source column. |
-| Duplicate risk on NULL FKs | `fact_less_fact`'s `ON CONFLICT (campaign_key, product_key) DO NOTHING` will not deduplicate rows where either key is NULL (unmatched campaign/product), since SQL NULLs are never equal. |
-| Yearly table dependency | `fact_inventory` unpivot covers 2025 and 2026. `fact_orders`/`fact_order_process` already union `orders_2025` + `orders_2026`. |
+| Duplicate risk on NULL FKs (resolved) | `fact_less_fact` uses a `WHERE NOT EXISTS` guard instead of `ON CONFLICT`, which also covers NULL/NULL pairs. |
+| Yearly table dependency | `fact_inventory` unpivot covers 2025 only (no 2026 columns exist yet in staging or Mongo). `fact_orders`/`fact_order_process` already union `orders_2025` + `orders_2026`. |
 | Fact-to-fact linkage | `fact_campaign_spend` and `fact_less_fact` share `dim_campaign` and `dim_products` but are never joined to each other directly — analysis connecting spend to promoted SKUs must go through the shared dimensions. |
+| Mongo deletions never propagate | `pg_staging.py` upserts by `_id` with an `update_at` watermark; a document deleted in Mongo disappears from the extract but its row survives in `staging` and `core` forever (verified: `staging.campaing_sku` 30 rows vs 6 live Mongo documents). Needs a design decision (soft-delete flag, periodic full refresh, or delete log). |
+| `dim_customers` dedup ranking timestamp | The `ROW_NUMBER` dedup orders by the joined **address** `update_at` only; `cust_master`'s own `update_at` is ignored. Whether the ranking should use `GREATEST` of both is open. |
+| Unconsumed staging tables | `dim_orders`, `exchange_rate`, `invoice_inlines`, `region`, `security`, `sheet_1`, `target_revenue` are extracted into `staging` but loaded by no model — see §5. Whether to build models for them (or stop extracting them) is a data-owner decision. |
 
 ---
 
@@ -264,6 +274,13 @@ Several staging table/column names carry typos inherited from the source system 
 | `staging.products` / `staging.subcategory` | — | `dim_products` |
 | `staging.inventory` | — (wide/pivoted monthly qty) | `fact_inventory` |
 | `staging.shipments` / `staging.invoices` / `staging.payments` | — | `fact_order_process` |
+| `staging.dim_orders` | — (order attributes) | **none** — extracted, no model consumes it |
+| `staging.exchange_rate` | — | **none** — extracted, no model consumes it |
+| `staging.invoice_inlines` | — (invoice line detail) | **none** — extracted, no model consumes it |
+| `staging.region` | — (region reference) | **none** — extracted, no model consumes it |
+| `staging.security` | — | **none** — extracted, no model consumes it |
+| `staging.sheet_1` | — | **none** — extracted, no model consumes it |
+| `staging.target_revenue` | — | **none** — extracted, no model consumes it |
 
 ---
 

@@ -25,7 +25,8 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# Scripts live in scripts/bash/, two levels below the project root.
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 RUN_SHELLCHECK=0
 while [[ $# -gt 0 ]]; do
@@ -93,9 +94,14 @@ else
 fi
 
 # PostgreSQL DSN with embedded password
+# - "$" is excluded in both character classes so placeholder DSNs built
+#   from shell variables (postgresql://${POSTGRES_USERNAME}:${POSTGRES_PASSWORD}@...)
+#   don't match — only literal credentials trip this check.
+# - security_check.sh itself is excluded from the results: this very
+#   pattern line contains the literal text being searched for.
 PG_DSN_HITS="$(grep -RInE --include='*.py' --include='*.sql' --include='*.sh' --include='*.md' \
-  -E 'postgresql://[^:]+:[^@]+@' \
-  . 2>/dev/null | grep -v -E '(\.env|\.env\.example|README|docs/|\.git/)' || true)"
+  -E 'postgresql://[^:[:space:]$]+:[^@[:space:]$]+@' \
+  . 2>/dev/null | grep -v -E '(\.env|\.env\.example|README|docs/|\.git/|security_check\.sh)' || true)"
 
 if [[ -n "${PG_DSN_HITS}" ]]; then
   fail "PostgreSQL DSN with embedded password found:"
@@ -190,7 +196,9 @@ fi
 # Summary
 # ------------------------------------------------------------------
 header "Summary"
-printf "  %s%d passed%s, %s%d warned%s, %s%d failed%s\n" \
+# %b, not %s: the colour codes are backslash escapes in variables, and
+# printf only interprets those in the format string or under %b.
+printf "  %b%d passed%b, %b%d warned%b, %b%d failed%b\n" \
   "${C_OK}"  "${PASS_COUNT}" "${C_RESET}" \
   "${C_WARN}" "${WARN_COUNT}" "${C_RESET}" \
   "${C_FAIL}" "${FAIL_COUNT}" "${C_RESET}"

@@ -1,0 +1,29 @@
+# =====================================================================
+# .pre-commit-config.yaml — local hooks, run before every commit
+# =====================================================================
+# Install once per clone:
+#     uv tool install pre-commit
+#     pre-commit install
+#
+# Deliberate omissions (reasoning in docs/GIT_WORKFLOW.md §5):
+#   - commitlint: Node dependency for a convention already followed
+#   - sqlfluff:   not configured yet; add with the CI lint step
+# =====================================================================
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: [--maxkb=5000]
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format

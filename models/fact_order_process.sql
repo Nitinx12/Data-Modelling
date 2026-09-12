@@ -150,10 +150,18 @@ FROM tmp_payments_final
 WHERE pay_date_parsed > CURRENT_DATE
 ON CONFLICT (invoice_id) DO NOTHING;
 
--- No self-heal DELETE needed here, unlike orders: the row itself stays
--- valid (order/invoice can be real even if the payment record is bad),
--- so the UPSERT below simply overwrites any previously-loaded bad
--- pay_date with NULL once pay_date_clean resolves to NULL for it.
+-- Self-heal for payments: if a previously-loaded pay_date later turns out
+-- to be future-dated garbage (now quarantined above), clear it from the
+-- fact explicitly. The UPSERT below COALESCE-guards milestone columns so a
+-- NULL from the source can no longer overwrite a real milestone — which
+-- means the old "overwrite with NULL" cleanup path had to become explicit.
+UPDATE core.fact_order_process AS f
+SET    pay_date          = NULL,
+       days_invoice_to_pay = NULL,
+       dw_updated_at     = now()
+FROM   core.fact_order_process_payment_rejects AS r
+WHERE  f.invoice_id = r.invoice_id
+  AND  f.pay_date   = r.pay_date;
 
 
 -- =====================================================================
@@ -215,9 +223,37 @@ FROM tmp_invoices_final
 WHERE invoice_date_parsed > CURRENT_DATE
 ON CONFLICT (order_id, field_name) DO NOTHING;
 
--- No self-heal DELETE needed for shipments/invoices either, same
--- reasoning as payments — the order row stays, only the offending
--- column gets overwritten to NULL by the UPSERT below.
+-- Self-heal for shipments/invoices, same explicit form as payments above:
+-- previously-loaded future-dated milestone dates are cleared directly,
+-- because the COALESCE-guarded UPSERT below no longer overwrites them
+-- with NULL on its own.
+UPDATE core.fact_order_process AS f
+SET    ship_date           = NULL,
+       days_order_to_ship  = NULL,
+       dw_updated_at       = now()
+FROM   core.fact_order_process_milestone_rejects AS r
+WHERE  r.field_name = 'ship_date'
+  AND  f.order_id   = r.order_id
+  AND  f.ship_date  = r.bad_date;
+
+UPDATE core.fact_order_process AS f
+SET    delivery_date         = NULL,
+       days_ship_to_delivery = NULL,
+       dw_updated_at         = now()
+FROM   core.fact_order_process_milestone_rejects AS r
+WHERE  r.field_name  = 'delivery_date'
+  AND  f.order_id    = r.order_id
+  AND  f.delivery_date = r.bad_date;
+
+UPDATE core.fact_order_process AS f
+SET    invoice_date          = NULL,
+       days_order_to_invoice = NULL,
+       days_invoice_to_pay   = NULL,
+       dw_updated_at         = now()
+FROM   core.fact_order_process_milestone_rejects AS r
+WHERE  r.field_name  = 'invoice_date'
+  AND  f.order_id    = r.order_id
+  AND  f.invoice_date = r.bad_date;
 
 
 -- =====================================================================
@@ -268,21 +304,42 @@ LEFT JOIN tmp_invoices_final AS I
     ON I."OrderID" = A."OrderID"
 LEFT JOIN tmp_payments_final AS P
     ON I."InvoiceID" = P."InvoiceID"
+-- COALESCE guard: this is an accumulating snapshot, so a milestone that
+-- has NOT happened yet arrives as NULL from the source. An unconditional
+-- SET would overwrite a previously-loaded real milestone (order shipped,
+-- then a re-run without that shipment row nulls ship_date again) and
+-- silently destroy the lags with it. EXCLUDED.x wins when the source has
+-- a value; the existing value survives otherwise. Only amount stays a
+-- plain overwrite — it's a measure, not a milestone, and a corrected
+-- amount should replace the old one.
+-- The lag columns are recomputed from the COALESCE-guarded dates, not
+-- the raw EXCLUDED ones, so they can never disagree with the dates
+-- actually stored.
+-- The WHERE guard covers customer_key/ship_mode/invoice_id too — they
+-- were previously updated but not guarded, so a change to them alone
+-- (milestones and amount unchanged) was silently skipped.
 ON CONFLICT (order_id) DO UPDATE SET
-    customer_key             = EXCLUDED.customer_key,
-    ship_mode               = EXCLUDED.ship_mode,
-    invoice_id              = EXCLUDED.invoice_id,
-    ship_date               = EXCLUDED.ship_date,
-    delivery_date           = EXCLUDED.delivery_date,
-    invoice_date            = EXCLUDED.invoice_date,
-    pay_date                = EXCLUDED.pay_date,
-    amount                  = EXCLUDED.amount,
-    days_order_to_ship      = EXCLUDED.days_order_to_ship,
-    days_ship_to_delivery   = EXCLUDED.days_ship_to_delivery,
-    days_order_to_invoice   = EXCLUDED.days_order_to_invoice,
-    days_invoice_to_pay     = EXCLUDED.days_invoice_to_pay,
-    dw_updated_at           = now()
-WHERE core.fact_order_process.ship_date     IS DISTINCT FROM EXCLUDED.ship_date
+    customer_key             = COALESCE(EXCLUDED.customer_key, core.fact_order_process.customer_key),
+    ship_mode                = COALESCE(EXCLUDED.ship_mode, core.fact_order_process.ship_mode),
+    invoice_id               = COALESCE(EXCLUDED.invoice_id, core.fact_order_process.invoice_id),
+    ship_date                = COALESCE(EXCLUDED.ship_date, core.fact_order_process.ship_date),
+    delivery_date            = COALESCE(EXCLUDED.delivery_date, core.fact_order_process.delivery_date),
+    invoice_date             = COALESCE(EXCLUDED.invoice_date, core.fact_order_process.invoice_date),
+    pay_date                 = COALESCE(EXCLUDED.pay_date, core.fact_order_process.pay_date),
+    amount                   = EXCLUDED.amount,
+    days_order_to_ship       = (COALESCE(EXCLUDED.ship_date,     core.fact_order_process.ship_date)
+                              - core.fact_order_process.order_date),
+    days_ship_to_delivery    = (COALESCE(EXCLUDED.delivery_date, core.fact_order_process.delivery_date)
+                              - COALESCE(EXCLUDED.ship_date,     core.fact_order_process.ship_date)),
+    days_order_to_invoice    = (COALESCE(EXCLUDED.invoice_date,  core.fact_order_process.invoice_date)
+                              - core.fact_order_process.order_date),
+    days_invoice_to_pay      = (COALESCE(EXCLUDED.pay_date,      core.fact_order_process.pay_date)
+                              - COALESCE(EXCLUDED.invoice_date,  core.fact_order_process.invoice_date)),
+    dw_updated_at            = now()
+WHERE core.fact_order_process.customer_key IS DISTINCT FROM EXCLUDED.customer_key
+   OR core.fact_order_process.ship_mode    IS DISTINCT FROM EXCLUDED.ship_mode
+   OR core.fact_order_process.invoice_id   IS DISTINCT FROM EXCLUDED.invoice_id
+   OR core.fact_order_process.ship_date     IS DISTINCT FROM EXCLUDED.ship_date
    OR core.fact_order_process.delivery_date IS DISTINCT FROM EXCLUDED.delivery_date
    OR core.fact_order_process.invoice_date  IS DISTINCT FROM EXCLUDED.invoice_date
    OR core.fact_order_process.pay_date      IS DISTINCT FROM EXCLUDED.pay_date
@@ -300,7 +357,7 @@ DROP TABLE IF EXISTS tmp_invoices_final;
 -- =====================================================================
 -- SELECT COUNT(*) FROM core.fact_order_process;
 -- SELECT * FROM core.fact_order_process ORDER BY order_date LIMIT 20;
--- SELECT COUNT(*) FROM core.fact_order_process WHERE customer_id IS NULL;   -- unmatched customers
+-- SELECT COUNT(*) FROM core.fact_order_process WHERE customer_key IS NULL;   -- unmatched customers
 -- SELECT COUNT(*) FROM core.fact_order_process WHERE ship_date IS NULL;     -- not yet shipped
 -- SELECT COUNT(*) FROM core.fact_order_process WHERE pay_date  IS NULL;     -- not yet paid
 -- SELECT * FROM core.fact_order_process_rejects ORDER BY order_date DESC;   -- quarantined future-dated orders

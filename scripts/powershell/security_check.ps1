@@ -86,10 +86,15 @@ if ($secretHits) {
 }
 
 # PostgreSQL DSN with embedded password
-$dsnPattern = 'postgresql://[^:]+:[^@]+@'
+# - "$" is excluded in both character classes so placeholder DSNs built
+#   from shell variables (postgresql://${POSTGRES_USERNAME}:${POSTGRES_PASSWORD}@...)
+#   don't match — only literal credentials trip this check.
+# - security_check scripts themselves are excluded from the results: the
+#   pattern lines in them contain the literal text being searched for.
+$dsnPattern = 'postgresql://[^:\s$]+:[^@\s$]+@'
 $allFiles = Get-ChildItem -Include *.py, *.sql, *.sh, *.md -Recurse
 $dsnHits = foreach ($file in $allFiles) {
-    if ($file.FullName -match '(\.git|docs|README|\.env\.example)') { continue }
+    if ($file.FullName -match '(\.git|docs|README|\.env\.example|security_check)') { continue }
     Select-String -Path $file.FullName -Pattern $dsnPattern | ForEach-Object {
         "$($file.FullName):$($_.LineNumber): $($_.Line.Trim())"
     }
