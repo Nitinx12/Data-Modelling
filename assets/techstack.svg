@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="150" viewBox="0 0 880 150" role="img" aria-label="Tech stack: MongoDB, PostgreSQL, Python, pandas, uv, SQLAlchemy, PyMongo, Rich, ruff, pytest, GitHub Actions, Bash, PowerShell">
+  <rect width="880" height="150" rx="12" fill="#0d1117"/>
+
+  <!-- Row 1: data and language -->
+  <g font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600" text-anchor="middle">
+    <rect x="20"  y="25" width="100" height="40" rx="8" fill="#47A248"/>
+    <text x="70"  y="50" fill="#ffffff">MongoDB</text>
+
+    <rect x="132" y="25" width="118" height="40" rx="8" fill="#336791"/>
+    <text x="191" y="50" fill="#ffffff">PostgreSQL</text>
+
+    <rect x="262" y="25" width="124" height="40" rx="8" fill="#3776AB"/>
+    <text x="324" y="50" fill="#ffffff">Python 3.13</text>
+
+    <rect x="398" y="25" width="84" height="40" rx="8" fill="#150458"/>
+    <text x="440" y="50" fill="#ffffff">pandas</text>
+
+    <rect x="494" y="25" width="118" height="40" rx="8" fill="#D71F00"/>
+    <text x="553" y="50" fill="#ffffff">SQLAlchemy</text>
+  </g>
+
+  <!-- Row 2: tooling and CI -->
+  <g font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600" text-anchor="middle">
+    <rect x="20"  y="85" width="64"  height="40" rx="8" fill="#DE5FE9"/>
+    <text x="52"  y="110" fill="#ffffff">uv</text>
+
+    <rect x="96"  y="85" width="92"  height="40" rx="8" fill="#499E34"/>
+    <text x="142" y="110" fill="#ffffff">PyMongo</text>
+
+    <rect x="200" y="85" width="76"  height="40" rx="8" fill="#3D4451"/>
+    <text x="238" y="110" fill="#ffffff">Rich</text>
+
+    <rect x="288" y="85" width="76"  height="40" rx="8" fill="#261230"/>
+    <text x="326" y="110" fill="#FCC24B">ruff</text>
+
+    <rect x="376" y="85" width="88"  height="40" rx="8" fill="#0A9EDC"/>
+    <text x="420" y="110" fill="#ffffff">pytest</text>
+
+    <rect x="476" y="85" width="156" height="40" rx="8" fill="#2088FF"/>
+    <text x="554" y="110" fill="#ffffff">GitHub Actions</text>
+
+    <rect x="644" y="85" width="76"  height="40" rx="8" fill="#4EAA25"/>
+    <text x="682" y="110" fill="#ffffff">Bash</text>
+
+    <rect x="732" y="85" width="118" height="40" rx="8" fill="#5391FE"/>
+    <text x="791" y="110" fill="#ffffff">PowerShell</text>
+  </g>
+</svg>

@@ -13,45 +13,108 @@
 
 ## Overview
 
-This project moves data from MongoDB into a Postgres warehouse and keeps
-it trustworthy:
+A Kimball style analytics warehouse. Raw documents land in MongoDB, are
+extracted into a `staging` schema in Postgres, and are transformed into a
+`core` schema fact constellation: five conformed dimensions shared across
+five fact tables (transaction, periodic snapshot, accumulating snapshot, and
+factless). A catalog driven PL/pgSQL test suite audits both schemas read
+only after every load — and a red check fails the whole pipeline.
 
-1. **Stage** — copy MongoDB collections into Postgres staging tables,
-   incrementally where possible.
-2. **Model** — build dimension and fact tables in dependency order.
-3. **Check** — run read only SQL data-quality loops over the result.
-4. **Maintain** — keep the logs all of the above produce from growing
-   unbounded.
+## Tech stack
 
-Every stage is a standalone script under `scripts/`, and the `Makefile`
-wires them into single-command targets (and a full pipeline).
+<p align="center">
+  <img src="assets/techstack.svg" alt="Tech stack" width="640">
+</p>
+
+## How it flows
 
 ```mermaid
 flowchart LR
-    Mongo[(MongoDB)] -->|make staging| Staging["pg_staging.py"]
-    Staging --> Bronze[(Postgres<br/>staging)]
-    Bronze -->|make models| Models["run_models.py<br/>dims → facts"]
-    Models --> DW[(Postgres<br/>dims & facts)]
-    DW -->|make quality| DQ["run_data_quality_loops.py"]
+    M[("MongoDB")] -->|"pg_staging.py<br/>incremental upsert"| S[("staging<br/>17 tables")]
+    S -->|"run_models.py<br/>dims then facts"| C[("core<br/>5 dims · 5 facts")]
+    C -->|"run_data_quality_loops.py --strict"| Q{{"DQ loops<br/>read only"}}
+    Q -->|"all pass"| G["✓ green run"]
+    Q -->|"any fail"| F["✗ exit 1"]
+    C --> A["sql/analytics<br/>KPI queries"]
 
-    Staging -.logs.-> Logs[(logs/)]
-    Models -.logs.-> Logs
-    DQ -.logs.-> Logs
+    subgraph OPSBOX ["ops — read only, never writes"]
+        H["health_check.sh"]
+        SC["security_check.sh"]
+        L["monitor_logs.sh"]
+    end
 
-    Logs -->|make logs-summary /<br/>logs-clean| Monitor["monitor_logs.sh"]
-    Staging -.verify.-> HC["health_check.sh"]
-    Models -.verify.-> HC
-    DQ -.verify.-> HC
-    HC -.scan.-> Sec["security_check.sh"]
-    Setup["setup_dev.sh"] -.one-time.-> Env[".env + venv"]
-    Setup -.then.-> HC
+    S -.-> H
+    C -.-> H
+    C -.-> SC
+    C -.-> L
+
+    classDef source fill:#47A248,stroke:#2d6e2e,color:#fff
+    classDef stage fill:#B7791F,stroke:#8a5a13,color:#fff
+    classDef core fill:#336791,stroke:#24486b,color:#fff
+    classDef dq fill:#D6336C,stroke:#a32653,color:#fff
+    classDef ok fill:#22863A,stroke:#176f2c,color:#fff
+    classDef bad fill:#CB2431,stroke:#9d1c26,color:#fff
+    classDef ops fill:#6E7681,stroke:#586069,color:#fff
+
+    class M source
+    class S stage
+    class C,A core
+    class Q dq
+    class G ok
+    class F bad
+    class H,SC,L ops
 ```
 
-`make pipeline` runs the staging → models → quality chain above in one
-command. `make health-check` and `make security-check` are read only
-pre-flight checks you can run before or after any stage.
-For how the pieces fit together and what each script does in
-detail, see **[Docs](#docs)** below.
+`make pipeline` runs the staging → models → quality chain in one command.
+The ops scripts verify and maintain the result without ever writing to it.
+
+## Quickstart
+
+```bash
+make setup-dev        # uv sync + .env scaffold + health check (one time)
+make config           # confirm resolved variables
+make pipeline         # staging load -> models -> data quality
+```
+
+## Common commands
+
+| Command | What it does |
+|---|---|
+| `make pipeline` | Full run: staging → models → data quality, fail on first error |
+| `make staging` / `make staging-one COLLECTION=<name>` | Load Mongo → staging (all, or one collection) |
+| `make models` / `make models-only MODELS="a.sql b.sql"` | Run all models, or just the named ones |
+| `make quality` | Read only data quality loops |
+| `make health-check-deep` | Deps, `.env`, both databases, row counts per table |
+| `make security-check` | `.env` not tracked, no secrets, `.gitignore` coverage |
+| `make logs-summary` / `make logs-clean-dry` | Log report / cleanup preview (deletes nothing) |
+| `make lint` / `make test` | ruff / pytest |
+
+Run `make help` for the full list — every target is a thin wrapper around a
+script in `scripts/`.
+
+## Repo structure
+
+```
+Data-Modelling/
+├── models/                  # dimension + fact load SQL (run by run_models.py)
+├── scripts/
+│   ├── python/              # pipeline: pg_staging, run_models, quality, main
+│   ├── bash/                # ops: health, security, logs, setup, pipeline
+│   └── powershell/          # Windows equivalents, kept in lockstep
+├── sql/
+│   ├── 00_create_database_and_schemas.sql   # bootstrap (manual, not CI)
+│   ├── 09_fn_customer_function.sql          # helper functions
+│   ├── 10_fn_products_function.sql
+│   └── analytics/           # ad hoc KPI queries (read only, via make analytics)
+├── tests/
+│   ├── python/unit/         # pytest unit tests for utils/
+│   └── sql/data_quality/    # the five read only DQ loops
+├── gx/                      # Great Expectations suites + runner
+├── docs/                    # reference docs (catalog, ERD, runbook, decisions)
+├── utils/                   # shared Python: engine, connection, logger
+├── assets/                  # logo and diagrams
+└── Makefile                 # thin wrappers, no logic
+```
 
 ## Requirements
 
@@ -63,26 +126,13 @@ detail, see **[Docs](#docs)** below.
 
 > **Windows:** run everything from inside WSL — the Makefile shells out
 > to `bash`, and all `scripts/*.sh` need a real POSIX shell, not
-> PowerShell/cmd.exe.
-
-## Quickstart
-
-```bash
-# One-time setup for a new checkout
-make setup-dev        # uv sync + .env scaffold + health check
-
-# Sanity-check resolved paths/vars before running anything
-make config
-
-# Full pipeline
-make pipeline         # staging load -> models -> data quality, in order
-```
+> PowerShell/cmd.exe. The `.ps1` equivalents work natively.
 
 ## Docs
 
 | Doc | What's in it |
 |---|---|
-| [`ARCHITECTURE.md`](ARCHITECTURE.md) | The pipeline end-to-end, with a diagram, stage-by-stage explanation, shared conventions, and directory layout. |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | The pipeline end to end, with a diagram, stage by stage explanation, shared conventions, and directory layout. |
 | [`scripts.md`](docs/scripts.md) | Per-script reference — usage, flags, where each one logs to. |
 | [`data_catlog.md`](docs/data_catlog.md) | Data Catlog of dim and fact tables. |
 | [`ERD.md`](docs/ERD.md) | A visual flowchart that maps out how data objects, or entities, relate to each other within a database system. |
@@ -147,7 +197,7 @@ Makefile itself.
 |---|---|
 | `make health-check` | Verify `uv`, `psql`, `mongosh`, Python 3.13, `.env`, Postgres + MongoDB reachability, and `logs/` + `.venv/` disk usage |
 | `make health-check-deep` | Same as `make health-check`, plus row counts for every `staging.*` and `core.*` table |
-| `make security-check` | Surface common security mistakes — `.env` tracked, hard-coded secrets, private keys, missing `.gitignore` patterns |
+| `make security-check` | Surface common security mistakes — `.env` tracked, hard coded secrets, private keys, missing `.gitignore` patterns |
 | `make security-check-shellcheck` | Same as `make security-check`, plus `shellcheck` on every `scripts/*.sh` |
 | `make setup-dev` | Idempotent local setup — `uv sync`, copy `.env.example` → `.env`, placeholder detection, then `make health-check` |
 
@@ -159,7 +209,7 @@ flags not exposed through the Makefile.
 
 | Command | Description |
 |---|---|
-| `make logs-summary` | Read-only summary report of `logs/` |
+| `make logs-summary` | Read only summary report of `logs/` |
 | `make logs-clean-dry` | Preview what a log cleanup would delete (deletes nothing) |
 | `make logs-clean` | Delete flagged logs (interactive confirmation) |
 | `make logs-clean-force` | Delete flagged logs without confirmation (CI/cron use) |

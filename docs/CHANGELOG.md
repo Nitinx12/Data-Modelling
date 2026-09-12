@@ -28,6 +28,7 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 - `make test` and `make test-cov` targets for Python unit tests.
 
 ### Changed
+- Polished `README.md`: added a tech stack image (`assets/techstack.svg`), a colour coded mermaid flow diagram of the pipeline with the DQ pass/fail fork and the read only ops scripts, a compact common commands table, and an annotated repo structure tree. Overview prose tightened and hyphens removed from carried over table text.
 - Swapped the README logo for `assets/new_logo.png`.
 - Replaced `docs/GIT_WORKFLOW.md` with a short, to the point workflow guide (branches, everyday loop, commit rules, pre push checks, merge) instead of the long form version.
 - Rewrote `docs/Schema.md` as a full architecture reference with mermaid diagrams: layer flow (Mongo → staging → core → DQ), a complete source to target lineage map of all consumed staging tables, the ERD, a Kimball bus matrix plus constellation diagram for the two fact families, an accumulating snapshot state diagram for `fact_order_process`, and the dependency graph for load order. Prose follows the no hyphen rule.
