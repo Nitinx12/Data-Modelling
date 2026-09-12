@@ -196,7 +196,9 @@ fi
 # Summary
 # ------------------------------------------------------------------
 header "Summary"
-printf "  %s%d passed%s, %s%d warned%s, %s%d failed%s\n" \
+# %b, not %s: the colour codes are backslash escapes in variables, and
+# printf only interprets those in the format string or under %b.
+printf "  %b%d passed%b, %b%d warned%b, %b%d failed%b\n" \
   "${C_OK}"  "${PASS_COUNT}" "${C_RESET}" \
   "${C_WARN}" "${WARN_COUNT}" "${C_RESET}" \
   "${C_FAIL}" "${FAIL_COUNT}" "${C_RESET}"
