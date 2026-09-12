@@ -39,7 +39,7 @@ WITH inventory_dedup AS(
     SELECT
         *,
         ROW_NUMBER() OVER(
-            PARTITION BY "ProductName" ORDER BY "update_at" DESC
+            PARTITION BY "ProductName" ORDER BY "update_at" DESC NULLS LAST
         ) AS rnk
     FROM staging.inventory
 ),

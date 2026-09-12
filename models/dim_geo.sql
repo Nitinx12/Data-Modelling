@@ -35,7 +35,7 @@ WITH duplicate_check AS(
         "update_at",
         ROW_NUMBER() OVER(
             PARTITION BY "CityName"
-            ORDER BY "update_at" DESC
+            ORDER BY "update_at" DESC NULLS LAST
         ) AS rnk
     FROM staging.cities
 ),

@@ -68,7 +68,7 @@ duplicate_check AS (
         *,
         ROW_NUMBER() OVER (
             PARTITION BY "CustomerID"
-            ORDER BY "update_at" DESC
+            ORDER BY "update_at" DESC NULLS LAST
         ) AS rnk
     FROM merge_quries
 ),

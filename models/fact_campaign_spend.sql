@@ -43,7 +43,7 @@ WITH spend_dedup AS (
     SELECT
         *,
         ROW_NUMBER() OVER (
-            PARTITION BY "CampaignName", "Date" ORDER BY "update_at" DESC
+            PARTITION BY "CampaignName", "Date" ORDER BY "update_at" DESC NULLS LAST
         ) AS rnk
     FROM staging.campaing_logs
 ),
