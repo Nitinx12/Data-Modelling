@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./scripts/health_check.sh --deep)",
+      "Bash(./scripts/security_check.sh)",
+      "Bash(uv run *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git checkout *)"
+    ]
+  }
+}
