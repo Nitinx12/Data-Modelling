@@ -34,6 +34,7 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 - Updated `Makefile`, `docs/scripts.md`, and `CLAUDE.md` to reflect new script and test paths.
 
 ### Fixed
+- Ops scripts resolved the project root one directory short since the `scripts/` reorganization (`health_check.sh`, `security_check.sh`, `monitor_logs.sh`, `setup_dev.sh` plus PowerShell `health_check.ps1`, `setup_dev.ps1`), so health/security checks silently scanned `scripts/` instead of the repo root; now resolve two levels up from `scripts/bash|powershell/`.
 - Data quality failures now fail the pipeline: `run_data_quality_loops.py` gains a `--strict` flag (exit 1 when any check fails; default stays report only) and `main.py` passes `--strict` to the quality stage, so cron/CI sees a non-zero exit on red data instead of a green run. Verified end to end with a deliberately failing check.
 - Corrected stale test paths: `.github/workflows/ci.yml` pytest steps and `pyproject.toml` `testpaths` pointed at `tests/unit`, which no longer exists after the `tests/` reorganization; updated both to `tests/python/unit`.
 - Fixed surrogate key inconsistency in `fact_order_process` by switching from `customer_id` (natural) to `customer_key` (surrogate).

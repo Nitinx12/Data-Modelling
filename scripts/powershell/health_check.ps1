@@ -26,7 +26,8 @@ if ($Help) {
 }
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$ProjectRoot = Split-Path -Parent $ScriptDir
+# Scripts live in scripts/powershell/, two levels below the project root.
+$ProjectRoot = Split-Path -Parent (Split-Path -Parent $ScriptDir)
 
 # Output helpers
 $PassCount = 0
