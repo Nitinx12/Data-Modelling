@@ -300,7 +300,7 @@ DROP TABLE IF EXISTS tmp_invoices_final;
 -- =====================================================================
 -- SELECT COUNT(*) FROM core.fact_order_process;
 -- SELECT * FROM core.fact_order_process ORDER BY order_date LIMIT 20;
--- SELECT COUNT(*) FROM core.fact_order_process WHERE customer_id IS NULL;   -- unmatched customers
+-- SELECT COUNT(*) FROM core.fact_order_process WHERE customer_key IS NULL;   -- unmatched customers
 -- SELECT COUNT(*) FROM core.fact_order_process WHERE ship_date IS NULL;     -- not yet shipped
 -- SELECT COUNT(*) FROM core.fact_order_process WHERE pay_date  IS NULL;     -- not yet paid
 -- SELECT * FROM core.fact_order_process_rejects ORDER BY order_date DESC;   -- quarantined future-dated orders
