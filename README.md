@@ -86,7 +86,9 @@ make pipeline         # staging load -> models -> data quality, in order
 | [`scripts.md`](docs/scripts.md) | Per-script reference — usage, flags, where each one logs to. |
 | [`data_catlog.md`](docs/data_catlog.md) | Data Catlog of dim and fact tables. |
 | [`ERD.md`](docs/ERD.md) | A visual flowchart that maps out how data objects, or entities, relate to each other within a database system. |
-| [`TESTS.md`](docs/TESTS.md) | SQL data-quality loop reference (runs from `tests/data_quality/`). |
+| [`TESTS.md`](docs/TESTS.md) | SQL data-quality loop reference (runs from `tests/sql/data_quality/`). |
+| [`CI_CD.md`](docs/CI_CD.md) | Production readiness and CI/CD roadmap — the DQ `--strict` gate, planned integration/security/GX jobs, CI seeding, prioritized plan. |
+| [`GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) | Git workflow guide — branching, Conventional Commits, production repo files, hooks, releases. |
 
 ## Makefile commands
 

@@ -1,0 +1,17 @@
+# =====================================================================
+# CODEOWNERS — auto requests review from the right owners on every PR
+# =====================================================================
+# Solo project today; this documents intent for anyone who forks it.
+# GitHub username: Nitinx12
+# =====================================================================
+
+# Default owner for everything in the root
+*                       @Nitinx12
+
+# Warehouse models and data quality loops
+/models/                @Nitinx12
+/tests/sql/             @Nitinx12
+
+# CI/CD and repo configuration
+/.github/               @Nitinx12
+/Makefile               @Nitinx12

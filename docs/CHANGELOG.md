@@ -13,6 +13,9 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 ## [Unreleased]
 
 ### Added
+- `docs/GIT_WORKFLOW.md`: git workflow guide adapted to this repo (branching, Conventional Commits, hooks, releases), with deliberate omissions recorded (semantic-release, VERSION file, commitlint, sqlfluff hook).
+- Production repo files: `.env.example` (mirrors `utils/engine.py` variables), `.gitattributes` (LF normalization), `.github/CODEOWNERS`, `.github/PULL_REQUEST_TEMPLATE.md`, `.github/ISSUE_TEMPLATE/` (bug report, feature request), `CONTRIBUTING.md`, `SECURITY.md`, `.pre-commit-config.yaml` (ruff + pre-commit hooks).
+- README docs table rows for `CI_CD.md` and `GIT_WORKFLOW.md`; fixed stale `tests/data_quality/` path in the `TESTS.md` row.
 - `docs/CI_CD.md`: production readiness and CI/CD roadmap, verified against the repository on 2026-09-12, covering the data quality `--strict` gate, CI integration/security/GX jobs, CI source seeding, and a prioritized plan.
 - PowerShell equivalents for all Bash ops scripts (`health_check.ps1`, `security_check.ps1`, `monitor_logs.ps1`, `setup_dev.ps1`) for cross-platform support.
 - `scripts/bash/pipeline.sh` as a lightweight wrapper for the main pipeline.
