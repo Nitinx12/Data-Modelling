@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/data_modelling_logo.png" alt="Data Modelling logo" width="320">
+  <img src="assets/new_logo.png" alt="Data Modelling logo" width="320">
 </p>
 
 <h1 align="center">Warehouse Pipeline</h1>
