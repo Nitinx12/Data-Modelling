@@ -24,6 +24,7 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 - `make test` and `make test-cov` targets for Python unit tests.
 
 ### Changed
+- Replaced `docs/GIT_WORKFLOW.md` with a short, to the point workflow guide (branches, everyday loop, commit rules, pre push checks, merge) instead of the long form version.
 - Rewrote `docs/Schema.md` as a full architecture reference with mermaid diagrams: layer flow (Mongo → staging → core → DQ), a complete source to target lineage map of all consumed staging tables, the ERD, a Kimball bus matrix plus constellation diagram for the two fact families, an accumulating snapshot state diagram for `fact_order_process`, and the dependency graph for load order. Prose follows the no hyphen rule.
 - Rewrote `docs/ERD.md` as a column level visual reference: full ERD with every column and business key annotation, a galaxy view of the fact constellation grouped by domain, a dedicated role playing dimension section for `dim_geo` on `fact_orders` with a sample double join query, and the topological load order as a mermaid dependency graph. Fixed a stale `data_catalog.md` filename reference.
 - Removed hyphens from prose in all project markdown files to match project conventions.
