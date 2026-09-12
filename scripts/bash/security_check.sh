@@ -94,9 +94,14 @@ else
 fi
 
 # PostgreSQL DSN with embedded password
+# - "$" is excluded in both character classes so placeholder DSNs built
+#   from shell variables (postgresql://${POSTGRES_USERNAME}:${POSTGRES_PASSWORD}@...)
+#   don't match — only literal credentials trip this check.
+# - security_check.sh itself is excluded from the results: this very
+#   pattern line contains the literal text being searched for.
 PG_DSN_HITS="$(grep -RInE --include='*.py' --include='*.sql' --include='*.sh' --include='*.md' \
-  -E 'postgresql://[^:]+:[^@]+@' \
-  . 2>/dev/null | grep -v -E '(\.env|\.env\.example|README|docs/|\.git/)' || true)"
+  -E 'postgresql://[^:[:space:]$]+:[^@[:space:]$]+@' \
+  . 2>/dev/null | grep -v -E '(\.env|\.env\.example|README|docs/|\.git/|security_check\.sh)' || true)"
 
 if [[ -n "${PG_DSN_HITS}" ]]; then
   fail "PostgreSQL DSN with embedded password found:"
