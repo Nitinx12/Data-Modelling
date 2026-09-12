@@ -50,15 +50,16 @@ the code, not assumptions about it:
 | CI can lint with `uv run sqlfluff` | `sqlfluff` is not a dependency — only `ruff` is in the `dev` group. The lint step must either be dropped or `sqlfluff` added to `dev` first. |
 | CI sets `DATABASE_URL`, `POSTGRES_SCHEMA_BRONZE` | The connection layer (`utils/engine.py`, `utils/connection.py`) reads `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DATABASE`, `POSTGRES_USERNAME`, `POSTGRES_PASSWORD`, `MONGO_URI`, and `MONGO_DB` via dotenv. The Makefile's `check-env` target also requires a `.env` file to exist, so CI must write one before any DB touching target runs. |
 | Bootstrap `sql/*.sql` in the integration job | The draft's placeholder opened a psycopg2 cursor and executed nothing. Reality: `sql/00_create_database_and_schemas.sql` cannot run as-is in CI (it starts with `CREATE DATABASE` and a `\c` meta-command), and it does not need to — the service container already provides the database, and `pg_staging.py` creates every staging table itself (`CREATE TABLE ... PRIMARY KEY` on first load). CI only needs the three schemas. |
-| Add checks to `sql/08_data_quality_checks.sql` | That file does not exist. Data quality lives in `tests/sql/data_quality/01_lp_*` through `05_lp_*`. New checks belong there, as a sixth loop. |
+| Add checks to `sql/08_data_quality_checks.sql` | Correction to an earlier correction: that file does exist, at `sql/analytics/08_data_quality_checks.sql` — analyst ad hoc queries, not the pipeline's DQ suite. The actionable part stands: new *pipeline* checks belong in `tests/sql/data_quality/` as a sixth loop. |
 | `make gx` in CI | The target requires a suite argument (`make gx SUITE=required_text_suite`); a bare `make gx` prints usage and fails. Five suites exist in `gx/expectations/`. |
 | "Four unresolved design inconsistencies" | Two of the four were resolved in commits `53c39f0` and `efb1bdd`; one is structurally forced and needs documenting, not fixing; one is genuinely still open. See §6. The newer problem is docs drift: `data_catlog.md` §4 and the CLAUDE.md known issues list still describe the pre-fix behavior. |
 | No `.env.example` | Confirmed — it does not exist, despite CLAUDE.md requiring it be kept in sync. Worth adding before CI needs to generate a `.env`. |
 
-Claims that checked out as written: the data quality suite cannot fail a build
-(`docs/scripts.md` documents "does not raise on failed checks", and
-`run_data_quality_loops.py` exits 0 unconditionally), `security_check.sh
+Claims that checked out as written at audit time: `security_check.sh
 --shellcheck` exists and exits 1 on failure, and `make test-cov` works.
+One has since been fixed: `run_data_quality_loops.py` no longer exits 0
+unconditionally — it gained a `--strict` flag, and `main.py` passes it,
+so a red DQ run now fails the pipeline.
 
 ---
 

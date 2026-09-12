@@ -34,6 +34,7 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 - Updated `Makefile`, `docs/scripts.md`, and `CLAUDE.md` to reflect new script and test paths.
 
 ### Fixed
+- `docs/CI_CD.md` §2: corrected the row claiming `08_data_quality_checks.sql` does not exist (it lives at `sql/analytics/` as an analyst ad hoc query; the actionable point about new pipeline checks going to `tests/sql/data_quality/` stands), and updated the "claims that checked out" note since the DQ suite can now fail a build via `--strict`.
 - Sorted/formatted the import block in `scripts/python/check_cols.py` (two `I001` ruff findings); `make lint` / `ruff check` is now clean on the whole repo.
 - Colourised the summary line in `health_check.sh` and `security_check.sh`: the counts were printed through `%s`, which doesn't interpret backslash escapes, so the raw `\033[...m` codes appeared literally in the output; switched to `%b` (the PowerShell equivalents already colour correctly).
 - `security_check.sh` / `security_check.ps1` DSN scan no longer false-positives: the regex now excludes `$` (and whitespace) from the user/password character classes so placeholder DSNs built from environment variables (`postgresql://${POSTGRES_USERNAME}:${POSTGRES_PASSWORD}@...`) don't match, and the scanner scripts themselves are excluded since their own pattern lines contain the literal text being searched. Verified both directions: a real embedded DSN still fails the check (exit 1), a `${VAR}` template passes.
