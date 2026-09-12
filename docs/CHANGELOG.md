@@ -76,5 +76,6 @@ Template for a new entry:
 - Short description of the bug and the fix.
 
 ### Removed
+- `docs/CI_CD.md` (production readiness and CI/CD roadmap). The durable parts live elsewhere: the DQ `--strict` gate is in the code and `docs/TESTS.md`, and the workflow in `docs/GIT_WORKFLOW.md`.
 - Short description of what was removed and why.
 -->
