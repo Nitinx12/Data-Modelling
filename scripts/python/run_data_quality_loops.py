@@ -1,10 +1,12 @@
 """Run the repository's read only PostgreSQL data quality SQL loops.
 NOTE: This script is intended to be run from the repository root, e.g.
-     uv run scripts/run_data_quality_loops.py
+     uv run scripts/python/run_data_quality_loops.py
+     uv run scripts/python/run_data_quality_loops.py --strict
 """
 
 from __future__ import annotations
 
+import argparse
 import logging
 import re
 import sys
@@ -161,8 +163,21 @@ def print_summary_table(results: list[dict]) -> None:
         )
 
 
-def main() -> None:
-    """Run all available data quality loops and print a Rich summary."""
+def main() -> int:
+    """Run all available data quality loops, print a Rich summary, and exit.
+
+    Exit code is 0 unless --strict is passed and any check failed.
+    """
+    parser = argparse.ArgumentParser(
+        description="Run the read only data quality SQL loops."
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit 1 if any data quality check failed (for CI / main.py).",
+    )
+    args = parser.parse_args()
+
     loop_files = get_loop_files(PROJECT_ROOT)
     console.print(f"[bold]Running {len(loop_files)} data quality loop(s)[/bold]")
     log.info("Running %s data quality loop(s).", len(loop_files))
@@ -170,8 +185,20 @@ def main() -> None:
     results = run_data_quality_loops(loop_files)
     print_summary_table(results)
 
+    total_failed_checks = sum(result["checks_failed"] for result in results)
+    if args.strict and total_failed_checks > 0:
+        log.error(
+            "%d data quality check(s) failed; failing the run (--strict).",
+            total_failed_checks,
+        )
+        console.print(
+            f"\n[bold red]{total_failed_checks} CHECK(S) FAILED — exiting 1 (--strict)[/bold red]"
+        )
+        return 1
+
     log.info("Data quality loop run completed.")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

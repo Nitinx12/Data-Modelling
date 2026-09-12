@@ -53,21 +53,22 @@ uv run scripts/python/run_models.py --continue-on-error
 
 ## `scripts/python/run_data_quality_loops.py`
 
-Runs every read only SQL loop file matching `tests/data_quality/*_lp_*.sql`,
+Runs every read only SQL loop file matching `tests/sql/data_quality/*_lp_*.sql`,
 in order. Each loop raises a `NOTICE` per failed check plus a rollup line
 like `"... loop complete: 2 failed check(s), 16 failed row(s)."`; this
 script parses those notices — it never writes to the database.
 
 ```bash
-uv run scripts/python/run_data_quality_loops.py
+uv run scripts/python/run_data_quality_loops.py             # report only
+uv run scripts/python/run_data_quality_loops.py --strict    # exit 1 if any check failed
 ```
 
 | | |
 |---|---|
-| Loop files | `tests/data_quality/*_lp_*.sql` |
+| Loop files | `tests/sql/data_quality/*_lp_*.sql` |
 | Logs | via `utils.logger`, `tests` subdir |
 | Console | Rich rule per loop, red `FAIL` lines, final summary table |
-| Exit behavior | Prints an overall PASS/FAIL summary; does not raise on failed checks |
+| Exit behavior | `0` by default regardless of failed checks (report only); `1` with `--strict` if any check failed. `main.py` always passes `--strict` |
 
 ## `scripts/bash/monitor_logs.sh`
 
