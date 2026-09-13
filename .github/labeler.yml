@@ -1,0 +1,44 @@
+# =====================================================================
+# labeler.yml — path-based auto labels for PRs (used by label.yml)
+# =====================================================================
+# Branch prefix in AGENTS.md: feat/models, fix/tests, docs, etc.
+# Labels here mirror those prefixes + Makefile pre-push checklist.
+# =====================================================================
+
+models:
+  - changed-files:
+      - any-glob-to-any-file: "models/**/*"
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file: "tests/**/*"
+
+gx:
+  - changed-files:
+      - any-glob-to-any-file: "gx/**/*"
+
+scripts:
+  - changed-files:
+      - any-glob-to-any-file: "scripts/**/*"
+
+sql:
+  - changed-files:
+      - any-glob-to-any-file: "sql/**/*"
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file: "docs/**/*"
+  - changed-files:
+      - any-glob-to-any-file: "*.md"
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: ".github/**/*"
+  - changed-files:
+      - any-glob-to-any-file: "Makefile"
+  - changed-files:
+      - any-glob-to-any-file: ".pre-commit-config.yaml"
+
+utils:
+  - changed-files:
+      - any-glob-to-any-file: "utils/**/*"

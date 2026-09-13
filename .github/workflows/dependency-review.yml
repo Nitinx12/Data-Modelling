@@ -1,0 +1,38 @@
+# =====================================================================
+# dependency-review.yml — PR dependency vulnerability gate
+# =====================================================================
+# Runs on: pull_request against main
+# Blocks PRs that introduce known-vulnerable dependencies (moderate+).
+# Uses GitHub's dependency graph — no extra config.
+# =====================================================================
+
+name: Dependency Review
+
+on:
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-review-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Only runs if PR touches dependency manifests
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
+          deny-licenses: GPL-2.0, GPL-3.0
+          comment-summary-in-pr: on-failure
