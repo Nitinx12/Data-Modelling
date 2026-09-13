@@ -230,9 +230,9 @@ pipeline-main-continue: ## Run main.py with --continue-on-error
 # Housekeeping
 # =====================================================================
 clean: ## Remove Python cache artifacts (safe — no data or log deletion)
-	find . -type d -name "__pycache__" -exec rm -rf {} +
-	find . -type d -name ".pytest_cache" -exec rm -rf {} +
-	find . -type f -name "*.pyc" -delete
+	find . -path ./.venv -prune -o -type d -name "__pycache__" -print -exec rm -rf {} +
+	find . -path ./.venv -prune -o -type d -name ".pytest_cache" -print -exec rm -rf {} +
+	find . -path ./.venv -prune -o -type f -name "*.pyc" -exec rm -f {} +
 
 distclean: clean logs-clean-force ## clean + force-delete flagged logs (destructive)
 	@echo "Deep clean complete."

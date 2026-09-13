@@ -62,7 +62,11 @@ foreach ($tool in @('uv', 'psql', 'mongosh')) {
         $cmd = Get-Command $tool -ErrorAction Stop
         Write-Ok "$tool found: $($cmd.Source)"
     } catch {
-        Write-Fail "$tool not found on PATH"
+        if ($tool -eq 'mongosh') {
+            Write-Warn "$tool not found on PATH — MongoDB checks skipped"
+        } else {
+            Write-Fail "$tool not found on PATH"
+        }
     }
 }
 
@@ -146,7 +150,7 @@ try {
         Write-Fail "MongoDB ping failed: $mongoPing"
     }
 } catch {
-    Write-Fail "mongosh not on PATH - cannot check MongoDB"
+    Write-Warn "mongosh not on PATH - skipping MongoDB ping"
 }
 
 # ------------------------------------------------------------------

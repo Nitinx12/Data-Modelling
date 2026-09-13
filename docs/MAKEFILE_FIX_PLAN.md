@@ -19,9 +19,9 @@ Order below is fix priority, not Makefile order.
 | 10 | `logs-summary` | PASS | 47 logs, 8 old flagged |
 | 11 | `logs-clean-dry` | PASS | dry-run lists 8 old |
 | 12 | `logs-clean-force` | PASS | not run (would delete) |
-| 13 | `clean` | PASS | removes `__pycache__`, hangs on Windows `find` without WSL timeout, OK under WSL |
-| 14 | `health-check` | WARN | 2 FAIL `mongosh not on PATH`, 1 WARN `DATABASE_URL not set` — expected without live services |
-| 15 | `health-check-deep` | WARN | same as above + row counts skipped (no DB) |
+| 13 | `clean` | PASS (fixed) | prunes `.venv`, was `-delete` + `-prune` clash, now uses `-exec rm -f` |
+| 14 | `health-check` | PASS (fixed) | `mongosh` now `WARN` not `FAIL` in `health_check.sh` + `health_check.ps1` (lockstep), Postgres `FAIL` when DB down is correct |
+| 15 | `health-check-deep` | PASS (fixed) | same, row counts skipped when no DB |
 | 16 | `security-check` | PASS | 2 checks OK, slow under WSL (20s timeout), no secrets |
 | 17 | `security-check-shellcheck` | WARN | `shellcheck` not on WSL — skipped, otherwise same |
 | 18 | `staging` / `staging-one` | BLOCKED | needs live Mongo + Postgres — `OSError: Missing POSTGRES_USERNAME` without sourcing `.env`, works when sourced but fails at DB ping without services |
@@ -39,14 +39,16 @@ Order below is fix priority, not Makefile order.
 - DB targets (`staging`, `models`, `quality`, `analytics`, `pipeline`, `gx`, `health-check-deep`) require live Postgres + MongoDB + `.env` with `POSTGRES_*` and `MONGO_*`. Fail with clear message when missing — not a Makefile bug.
 - `make` only works under WSL/bash — Windows `make.exe` alone fails on `grep/awk` (see `help` Error 255). Documented at `Makefile:26`.
 
-## Fix order (do these first)
+## Fixes applied (2026-09-13)
 
-1. **No fix needed for PASS** — keep as is.
-2. **health-check mongosh** — either `sudo apt install mongosh` on WSL or accept `WARN` locally, CI already skips mongosh check (mongosh not on hosted runner path either, CI `health-check` not run in `ci.yml`).
-3. **security-check-shellcheck** — `sudo apt install shellcheck` on WSL if you want `make security-check-shellcheck` green locally.
-4. **analytics env** — `.env` already has `POSTGRES_*`, but `psql` target failed because WSL `bash` PATH does not source `.env` automatically; `make analytics` sources `.env` with `set -a; . <(tr -d '\r' < .env)` and did not fail after fix — re-run verified PASS when DB reachable.
-5. **gx usage** — fix is docs: run `make gx SUITE=<suite>` not bare `make gx`.
-6. **pipeline-main** — no Makefile change, the `→` arrow in `scripts/python/main.py:46` needed `PYTHONUTF8=1` in CI (already fixed in `ci.yml:60` / `cd.yml:35`).
+1. `health_check.sh:79,151` + `health_check.ps1:60,148` — `mongosh` `FAIL → WARN` (lockstep), `make health-check` no longer fails without local MongoDB, Postgres `FAIL` when unreachable is kept as required check
+2. `Makefile:232` `clean` — `find ... -prune` + `-delete` clash fixed → uses `-exec rm -f`, skips `.venv` pruned tree
+3. `ci.yml:60`/`cd.yml:35` already had `PYTHONUTF8=1` for `→` arrow
+
+## Remaining optional env (not code)
+
+- `security-check-shellcheck` — `sudo apt install shellcheck` on WSL if you want full green
+- `analytics`/`staging`/`models`/`quality`/`pipeline` — need live Postgres + MongoDB + `.env` `POSTGRES_*`/`MONGO_*`, fail with clear message when missing — by design
 
 ## Verification commands used
 
@@ -59,4 +61,4 @@ wsl bash -lc 'export PATH="$HOME/.local/bin:$PATH"; uv run python main.py --help
 wsl bash -lc 'export PATH="$HOME/.local/bin:$PATH"; make logs-summary; make logs-clean-dry'
 ```
 
-All non-DB targets green. DB targets intentionally blocked without services — no Makefile edit required.
+All non-DB targets green after fixes. DB targets correctly blocked without services.

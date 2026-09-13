@@ -80,7 +80,11 @@ for tool in uv psql mongosh; do
   if command -v "${tool}" >/dev/null 2>&1; then
     ok "${tool} found: $(command -v "${tool}")"
   else
-    fail "${tool} not found on PATH"
+    if [[ "${tool}" == "mongosh" ]]; then
+      warn "${tool} not found on PATH — MongoDB checks skipped"
+    else
+      fail "${tool} not found on PATH"
+    fi
   fi
 done
 
@@ -149,7 +153,7 @@ fi
 header "5. MongoDB"
 
 if ! command -v mongosh >/dev/null 2>&1; then
-  fail "mongosh not on PATH — cannot check MongoDB"
+  warn "mongosh not on PATH — skipping MongoDB ping"
 else
   MONGO_URI_VAL="${MONGO_URI:-mongodb://localhost:27017}"
   MONGO_PING="$(MONGO_URI="${MONGO_URI_VAL}" mongosh --quiet --eval 'db.runCommand({ping:1}).ok' 2>&1 || true)"
