@@ -180,12 +180,19 @@ if (Test-Path $venvDir) {
 # ------------------------------------------------------------------
 if ($Deep -and (Get-Command psql -ErrorAction SilentlyContinue) -and $DatabaseUrl) {
     Write-Header "7. Warehouse table counts (deep)"
-    $query = "SELECT table_schema, table_name, n_live_tup FROM information_schema.tables t JOIN pg_stat_user_tables s USING (table_schema, table_name) WHERE table_schema IN ('staging','core') ORDER BY table_schema, table_name;"
-    $results = psql $DatabaseUrl -tAc $query 2>$null
-    foreach ($line in $results) {
-        if ($line) {
-            $parts = $line.Split('|')
-            Write-Ok "$($parts[0]).$($parts[1]) - $($parts[2]) rows"
+    # pg_stat_user_tables.n_live_tup is a planner estimate (often 0 until
+    # ANALYZE runs), so count each table for real — read only, one SELECT
+    # per table.
+    $tables = psql $DatabaseUrl -tAc "SELECT table_schema, table_name FROM information_schema.tables WHERE table_schema IN ('staging','core') ORDER BY table_schema, table_name;" 2>$null
+    if (-not $tables) {
+        Write-Fail "warehouse table list query returned nothing (psql error?)"
+    } else {
+        foreach ($line in $tables) {
+            if ($line) {
+                $parts = $line.Split('|')
+                $rows = psql $DatabaseUrl -tAc "SELECT COUNT(*) FROM $($parts[0]).$($parts[1]);" 2>$null
+                Write-Ok "$($parts[0]).$($parts[1]) - $rows rows"
+            }
         }
     }
 }

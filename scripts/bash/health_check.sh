@@ -190,16 +190,24 @@ fi
 # ------------------------------------------------------------------
 if [[ "${DEEP}" -eq 1 ]] && command -v psql >/dev/null 2>&1 && [[ -n "${DATABASE_URL}" ]]; then
   header "7. Warehouse table counts (deep)"
-  psql "${DATABASE_URL}" -tAc "
-    SELECT table_schema, table_name, n_live_tup
-    FROM information_schema.tables t
-    JOIN pg_stat_user_tables s USING (table_schema, table_name)
+  # pg_stat_user_tables.n_live_tup is a planner estimate (often 0 until
+  # ANALYZE runs), so count each table for real — read only, one SELECT
+  # per table.
+  TABLES="$(psql "${DATABASE_URL}" -tAc "
+    SELECT table_schema, table_name
+    FROM information_schema.tables
     WHERE table_schema IN ('staging','core')
     ORDER BY table_schema, table_name;
-  " 2>/dev/null | while IFS='|' read -r schema name rows; do
-    [[ -z "${schema}" ]] && continue
-    printf "  ${C_OK}[ OK ]${C_RESET}  %s.%s — %s rows\n" "${schema}" "${name}" "${rows:-?}"
-  done
+  " 2>/dev/null || true)"
+  if [[ -z "${TABLES}" ]]; then
+    fail "warehouse table list query returned nothing (psql error?)"
+  else
+    while IFS='|' read -r schema name; do
+      [[ -z "${schema}" ]] && continue
+      ROWS="$(psql "${DATABASE_URL}" -tAc "SELECT COUNT(*) FROM ${schema}.${name};" 2>/dev/null || true)"
+      ok "${schema}.${name} — ${ROWS:-?} rows"
+    done <<< "${TABLES}"
+  fi
 fi
 
 # ------------------------------------------------------------------
