@@ -1,8 +1,8 @@
-$ErrorActionPreference = 'Continue' # Do not stop on single file error, as per bash script
-
 param (
     [string]$Command = 'summary'
 )
+
+$ErrorActionPreference = 'Continue' # Do not stop on single file error, as per bash script
 
 # ============================================================================
 # LOG MONITOR & CLEANUP

@@ -1,10 +1,10 @@
-$ErrorActionPreference = 'Stop'
-
 param (
     [switch]$SkipHealth,
     [switch]$NoSync,
     [switch]$Help
 )
+
+$ErrorActionPreference = 'Stop'
 
 if ($Help) {
     Write-Host "setup_dev.ps1 - one-shot local environment setup for new contributors"
@@ -35,7 +35,7 @@ $C_WARN = "Yellow"
 function Write-Ok ([string]$Text) { Write-Host "  [ OK ]  $Text" -ForegroundColor Green }
 function Write-Fail ([string]$Text) { Write-Host "  [FAIL]  $Text" -ForegroundColor Red; exit 1 }
 function Write-Warn ([string]$Text) { Write-Host "  [WARN]  $Text" -ForegroundColor Yellow }
-function Write-Header ([string]$Text) { Write-Host "`n$($Text)" -ForegroundColor Cyan -Style Bold }
+function Write-Header ([string]$Text) { Write-Host "`n$($Text)" -ForegroundColor Cyan }
 
 # ------------------------------------------------------------------
 # 1. uv
@@ -100,7 +100,7 @@ if (Test-Path ".env") {
 # ------------------------------------------------------------------
 if (-not $SkipHealth) {
     Write-Header "5. Health check"
-    $healthScript = Join-Path "scripts" "health_check.ps1"
+    $healthScript = Join-Path "scripts" "powershell" "health_check.ps1"
     if (Test-Path $healthScript) {
         try {
             & $healthScript

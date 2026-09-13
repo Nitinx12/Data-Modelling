@@ -109,10 +109,10 @@ fi
 # ------------------------------------------------------------------
 if [[ "${SKIP_HEALTH}" -eq 0 ]]; then
   header "5. Health check"
-  if [[ -x scripts/health_check.sh ]]; then
-    scripts/health_check.sh || warn "health_check.sh reported issues (see above)"
+  if [[ -x scripts/bash/health_check.sh ]]; then
+    scripts/bash/health_check.sh || warn "health_check.sh reported issues (see above)"
   else
-    warn "scripts/health_check.sh not found or not executable"
+    warn "scripts/bash/health_check.sh not found or not executable"
   fi
 else
   warn "Skipped health check (--skip-health)"

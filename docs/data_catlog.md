@@ -111,7 +111,7 @@ dim_products ───┘
 ### 2.5 `core.dim_products`
 - **Purpose:** One row per product/SKU.
 - **Source:** `staging.products` LEFT JOIN `staging.subcategory` on `INITCAP("SubcategoryName") = INITCAP("subcategory")`.
-- **Load pattern:** SCD Type 1 upsert on `product_code`. **Caveat:** the load explicitly filters `WHERE "UnitPrice" IS NOT NULL AND "UnitPrice" > 0` — any product with a missing or zero price is silently excluded from the dimension, which will cause unmatched (`product_key IS NULL`) rows downstream in `fact_orders`, `fact_inventory`, and `fact_less_fact`. **Also note:** the `category` column is populated from the *subcategory* staging table (`S."category"`) while the join key compares subcategory names — worth confirming this is intentional and not a mismatched join.
+- **Load pattern:** SCD Type 1 upsert on `product_code`. **Caveat:** products with a missing, zero, or negative price are **not** excluded — the row is kept and `unit_price` is set to NULL (`fact_orders` falls back to the `UNKNOWN` placeholder product only when the product is absent from the catalog entirely). **Also note:** the `category` column is populated from the *subcategory* staging table (`S."category"`) while the join key compares subcategory names — worth confirming this is intentional and not a mismatched join.
 
 | Column | Type | Notes |
 |---|---|---|

@@ -1,8 +1,8 @@
-$ErrorActionPreference = 'Stop'
-
 param (
     [switch]$ShellCheck
 )
+
+$ErrorActionPreference = 'Stop'
 
 # Output helpers
 $PassCount = 0
@@ -10,7 +10,7 @@ $FailCount = 0
 $WarnCount = 0
 
 function Write-Header ([string]$Text) {
-    Write-Host "`n$($Text)" -ForegroundColor Cyan -Style Bold
+    Write-Host "`n$($Text)" -ForegroundColor Cyan
 }
 
 function Write-Ok ([string]$Text) {
@@ -91,10 +91,12 @@ if ($secretHits) {
 #   don't match — only literal credentials trip this check.
 # - security_check scripts themselves are excluded from the results: the
 #   pattern lines in them contain the literal text being searched for.
+# - gitignored build dirs (.venv, node_modules) are excluded: their
+#   site-packages docstring examples are not our credentials.
 $dsnPattern = 'postgresql://[^:\s$]+:[^@\s$]+@'
 $allFiles = Get-ChildItem -Include *.py, *.sql, *.sh, *.md -Recurse
 $dsnHits = foreach ($file in $allFiles) {
-    if ($file.FullName -match '(\.git|docs|README|\.env\.example|security_check)') { continue }
+    if ($file.FullName -match '(\.git|docs|README|\.env\.example|\.venv|node_modules|security_check)') { continue }
     Select-String -Path $file.FullName -Pattern $dsnPattern | ForEach-Object {
         "$($file.FullName):$($_.LineNumber): $($_.Line.Trim())"
     }
@@ -112,8 +114,10 @@ if ($dsnHits) {
 # ------------------------------------------------------------------
 Write-Header "3. Private keys"
 
+# Private keys in the repo. Gitignored build dirs are excluded: certifi's
+# cacert.pem inside .venv is a CA bundle we installed, not our key.
 $keyPatterns = @('*.pem', '*.key', 'id_rsa', 'id_dsa', 'id_ed25519')
-$privateKeys = Get-ChildItem -Recurse -Include $keyPatterns | Where-Object { $_.FullName -notmatch '\\\.git\\' }
+$privateKeys = Get-ChildItem -Recurse -Include $keyPatterns | Where-Object { $_.FullName -notmatch '\\(\.git|\.venv|node_modules|logs)\\' }
 
 if ($privateKeys) {
     Write-Fail "Private key files found in repo:"
@@ -125,19 +129,17 @@ if ($privateKeys) {
 # ------------------------------------------------------------------
 # 4. Coverage artifacts
 # ------------------------------------------------------------------
+# Coverage artifacts are gitignored local artifacts; the security concern
+# is committing them, so check the git index (like the .env check above)
+# rather than the working tree.
 Write-Header "4. Coverage artifacts"
 
-if (Test-Path "htmlcov") {
-    Write-Fail "htmlcov/ directory present - should be in .gitignore"
+$trackedArtifacts = git ls-files -- 'htmlcov/*' '.coverage' '.coverage.*'
+if ($trackedArtifacts) {
+    Write-Fail "Coverage artifacts tracked by git:"
+    $trackedArtifacts | ForEach-Object { Write-Host "      $_" }
 } else {
-    Write-Ok "No htmlcov/ directory in working tree"
-}
-
-$coverageFiles = Get-ChildItem -Recurse -Filter ".coverage*" | Where-Object { $_.FullName -notmatch '\\\.git\\' }
-if ($coverageFiles) {
-    Write-Fail ".coverage files present in working tree"
-} else {
-    Write-Ok "No .coverage files in working tree"
+    Write-Ok "No coverage artifacts tracked by git"
 }
 
 # ------------------------------------------------------------------

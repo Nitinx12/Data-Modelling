@@ -27,6 +27,13 @@ from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
 
+# Windows consoles often default to a legacy code page (cp1252) that can't
+# encode the ✓/✗ status glyphs, which would crash the final summary with a
+# UnicodeEncodeError after all stages already ran. Force UTF-8 output.
+for _stream in (sys.stdout, sys.stderr):
+    if _stream and _stream.encoding and _stream.encoding.lower() not in ("utf-8", "utf8"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+
 
 def run(script: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
     cmd = ["uv", "run", str(script), *args]

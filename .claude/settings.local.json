@@ -7,7 +7,20 @@
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(git push *)",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "Bash(uv --version)",
+      "Bash(uv sync *)",
+      "Bash(./scripts/bash/health_check.sh *)",
+      "Read(//c/Program Files/PostgreSQL//**)",
+      "Read(//c/Program Files/PostgreSQL/**)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(./scripts/bash/security_check.sh *)",
+      "Bash(echo \"BASH_EXIT=$?\")",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File scripts/powershell/security_check.ps1)",
+      "Bash(echo \"PS_EXIT=$?\")",
+      "Bash(where.exe pwsh *)",
+      "Bash(pwsh --version)",
+      "Bash(powershell -NoProfile -Command '$PSVersionTable.PSVersion.ToString\\(\\)')"
     ]
   }
 }

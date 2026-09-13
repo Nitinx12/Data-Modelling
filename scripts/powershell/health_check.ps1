@@ -35,7 +35,7 @@ $FailCount = 0
 $WarnCount = 0
 
 function Write-Header ([string]$Text) {
-    if (-not $Quiet) { Write-Host "`n$($Text)" -ForegroundColor Cyan -Style Bold }
+    if (-not $Quiet) { Write-Host "`n$($Text)" -ForegroundColor Cyan }
 }
 
 function Write-Ok ([string]$Text) {

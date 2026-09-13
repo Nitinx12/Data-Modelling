@@ -99,9 +99,11 @@ fi
 #   don't match — only literal credentials trip this check.
 # - security_check.sh itself is excluded from the results: this very
 #   pattern line contains the literal text being searched for.
+# - gitignored build dirs (.venv/, node_modules/) are excluded: their
+#   site-packages docstring examples are not our credentials.
 PG_DSN_HITS="$(grep -RInE --include='*.py' --include='*.sql' --include='*.sh' --include='*.md' \
   -E 'postgresql://[^:[:space:]$]+:[^@[:space:]$]+@' \
-  . 2>/dev/null | grep -v -E '(\.env|\.env\.example|README|docs/|\.git/|security_check\.sh)' || true)"
+  . 2>/dev/null | grep -v -E '(\.env|\.env\.example|README|docs/|\.git/|\.venv/|node_modules/|security_check\.sh)' || true)"
 
 if [[ -n "${PG_DSN_HITS}" ]]; then
   fail "PostgreSQL DSN with embedded password found:"
@@ -115,7 +117,9 @@ fi
 # ------------------------------------------------------------------
 header "3. Private keys"
 
-PRIVATE_KEYS="$(find . -path ./.git -prune -o -type f \
+# Private keys in the repo. Gitignored build dirs are pruned: certifi's
+# cacert.pem inside .venv/ is a CA bundle we installed, not our key.
+PRIVATE_KEYS="$(find . \( -path ./.git -o -path ./.venv -o -path ./node_modules -o -path ./logs \) -prune -o -type f \
   \( -name '*.pem' -o -name '*.key' -o -name 'id_rsa' -o -name 'id_dsa' -o -name 'id_ed25519' \) \
   -print 2>/dev/null || true)"
 
@@ -129,18 +133,18 @@ fi
 # ------------------------------------------------------------------
 # 4. Coverage artifacts
 # ------------------------------------------------------------------
+# Coverage artifacts are gitignored local artifacts; the security concern
+# is committing them, so check the git index (like the .env check above)
+# rather than the working tree — and the old working-tree find was also
+# missing a -print on its '.coverage' branch, so it never detected anything.
 header "4. Coverage artifacts"
 
-if [[ -d htmlcov ]]; then
-  fail "htmlcov/ directory present — should be in .gitignore"
+TRACKED_ARTIFACTS="$(git ls-files -- 'htmlcov/*' '.coverage' '.coverage.*' 2>/dev/null || true)"
+if [[ -n "${TRACKED_ARTIFACTS}" ]]; then
+  fail "Coverage artifacts tracked by git:"
+  printf '      %s\n' "${TRACKED_ARTIFACTS}" | sed 's/^/  /'
 else
-  ok "No htmlcov/ directory in working tree"
-fi
-
-if find . -path ./.git -prune -o -name '.coverage' -o -name '.coverage.*' -print 2>/dev/null | grep -q .; then
-  fail ".coverage files present in working tree"
-else
-  ok "No .coverage files in working tree"
+  ok "No coverage artifacts tracked by git"
 fi
 
 # ------------------------------------------------------------------
