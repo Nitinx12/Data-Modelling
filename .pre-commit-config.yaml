@@ -6,7 +6,7 @@
 #     pre-commit install
 #
 # Deliberate omissions (reasoning in docs/GIT_WORKFLOW.md §5):
-#   - commitlint: Node dependency for a convention already followed
+#   - commitlint (local Node hook): covered by .githooks/commit-msg and CI commitlint.yml
 #   - sqlfluff:   not configured yet; add with the CI lint step
 # =====================================================================
 repos:
@@ -22,7 +22,7 @@ repos:
       - id: detect-private-key
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.0
+    rev: v0.16.5
     hooks:
       - id: ruff
         args: [--fix]
