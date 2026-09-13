@@ -13,13 +13,9 @@
 
 ## Overview
 
-A Kimball style analytics warehouse. Raw documents land in MongoDB, are
-extracted into a `staging` schema in Postgres, and are transformed into a
-`core` schema fact constellation: five conformed dimensions shared across
-five fact tables (transaction, periodic snapshot, accumulating snapshot, and
-factless). A catalog driven PL/pgSQL test suite audits both schemas read
-only after every load — and a red check fails the whole pipeline.
+A Kimball-style analytics warehouse where MongoDB documents flow into PostgreSQL staging and are transformed into a core fact constellation with five conformed dimensions and five fact tables. A catalog-driven, read-only PL/pgSQL test suite audits both schemas after each load, failing the pipeline on any red check.
 
+---
 ## Tech stack
 
 <p align="center">
@@ -83,29 +79,23 @@ flowchart LR
 `make pipeline` runs the staging → models → quality chain in one command.
 The ops scripts verify and maintain the result without ever writing to it.
 
-## Quickstart
-
-```bash
-make setup-dev        # uv sync + .env scaffold + health check (one time)
-make config           # confirm resolved variables
-make pipeline         # staging load -> models -> data quality
+```Bash
+make setup-dev          # uv sync + .env scaffold + health check (one time)
+make config             # confirm resolved variables
+make pipeline           # staging load -> models -> data quality
+make install            # install/sync all project dependencies via uv
+make check-env          # Verify a .env file exists before running anything DB-related
+make lint               # Run ruff checks over the codebase (no changes made)
+make lint-fix           # Run ruff checks and auto-fix what it safely can
+make format-check       # Check formatting with ruff without changing files
+make staging            # Load every Mongo collection into staging
+make models             # Run every model in sequence, in dependency order
+make quality            # Run the read only data quality SQL loops
+make analytics          # SQL analytics queries
+make health-check       # Verify tools, env, DBs, logs, and venv.
+make clean              # Remove Python cache artifacts (safe — no data or log deletion)
 ```
-
-## Common commands
-
-| Command | What it does |
-|---|---|
-| `make pipeline` | Full run: staging → models → data quality, fail on first error |
-| `make staging` / `make staging-one COLLECTION=<name>` | Load Mongo → staging (all, or one collection) |
-| `make models` / `make models-only MODELS="a.sql b.sql"` | Run all models, or just the named ones |
-| `make quality` | Read only data quality loops |
-| `make health-check-deep` | Deps, `.env`, both databases, row counts per table |
-| `make security-check` | `.env` not tracked, no secrets, `.gitignore` coverage |
-| `make logs-summary` / `make logs-clean-dry` | Log report / cleanup preview (deletes nothing) |
-| `make lint` / `make test` | ruff / pytest |
-
-Run `make help` for the full list — every target is a thin wrapper around a
-script in `scripts/`.
+**Note** Explore the available make commands yourself. Run `make help` or inspect the Makefile to discover additional commands and understand what each one does.
 
 ## Repo structure
 
@@ -157,97 +147,3 @@ Data-Modelling/
 | [`DECISIONS.md`](docs/DECISIONS.md) | Decision log — settled design decisions and open items awaiting a data owner. |
 | [`GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) | Git workflow guide — branching, Conventional Commits, production repo files, hooks, releases. |
 
-## Makefile commands
-
-Run `make` or `make help` at any time to print this list from the
-Makefile itself.
-
-### Setup
-
-| Command | Description |
-|---|---|
-| `make install` | Install/sync all project dependencies via uv |
-| `make check-env` | Verify a `.env` file exists before running anything DB-related |
-| `make config` | Print resolved variables (useful before running with overrides) |
-
-### Code quality
-
-| Command | Description |
-|---|---|
-| `make lint` | Run ruff checks over the codebase (no changes made) |
-| `make lint-fix` | Run ruff checks and auto-fix what it safely can |
-| `make format-check` | Check formatting with ruff without changing files |
-
-### Staging load (`pg_staging.py`)
-
-| Command | Description |
-|---|---|
-| `make staging` | Load every Mongo collection into staging |
-| `make staging-one COLLECTION=<name>` | Load a single collection |
-
-### Warehouse models (`run_models.py`)
-
-| Command | Description |
-|---|---|
-| `make models` | Run every model in sequence, in dependency order |
-| `make models-only MODELS="a.sql b.sql"` | Run specific models only |
-| `make models-continue` | Run every model, continuing past failures instead of stopping |
-
-### Data quality (`run_data_quality_loops.py`)
-
-| Command | Description |
-|---|---|
-| `make quality` | Run the read only data quality SQL loops |
-| `make dq` | Alias for `quality` |
-
-### Analytics schema
-
-| Command | Description |
-|---|---|
-| `make analytics` | Apply every `.sql` file in `sql/analytics/` via `psql` and print any KPI results; builds `DATABASE_URL` from `.env` if not passed explicitly |
-
-### Health & security checks
-
-| Command | Description |
-|---|---|
-| `make health-check` | Verify `uv`, `psql`, `mongosh`, Python 3.13, `.env`, Postgres + MongoDB reachability, and `logs/` + `.venv/` disk usage |
-| `make health-check-deep` | Same as `make health-check`, plus row counts for every `staging.*` and `core.*` table |
-| `make security-check` | Surface common security mistakes — `.env` tracked, hard coded secrets, private keys, missing `.gitignore` patterns |
-| `make security-check-shellcheck` | Same as `make security-check`, plus `shellcheck` on every `scripts/*.sh` |
-| `make setup-dev` | Idempotent local setup — `uv sync`, copy `.env.example` → `.env`, placeholder detection, then `make health-check` |
-
-All four use `scripts/health_check.sh` and `scripts/security_check.sh`
-under the hood. Run them directly from WSL or Linux if you need to pass
-flags not exposed through the Makefile.
-
-### Log maintenance (`monitor_logs.sh`)
-
-| Command | Description |
-|---|---|
-| `make logs-summary` | Read only summary report of `logs/` |
-| `make logs-clean-dry` | Preview what a log cleanup would delete (deletes nothing) |
-| `make logs-clean` | Delete flagged logs (interactive confirmation) |
-| `make logs-clean-force` | Delete flagged logs without confirmation (CI/cron use) |
-
-### Full pipeline
-
-| Command | Description |
-|---|---|
-| `make pipeline` | Run staging load → models → data quality, in order |
-| `make pipeline-continue` | Same as `pipeline`, but models keep running past failures |
-
-### Housekeeping
-
-| Command | Description |
-|---|---|
-| `make clean` | Remove Python cache artifacts (safe — no data or log deletion) |
-| `make distclean` | `clean` + force-delete flagged logs (destructive) |
-
-### Useful overrides
-
-```bash
-make staging-one COLLECTION=Address
-make models-only MODELS="fact_orders.sql fact_less_fact.sql"
-make logs-clean MAX_AGE_DAYS=14 MAX_SIZE_MB=10
-make analytics DATABASE_URL=postgresql://user:pass@host:5432/db
-```
