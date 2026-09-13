@@ -1,0 +1,56 @@
+# =====================================================================
+# commitlint.yml — Conventional Commits gate (mirrors .githooks/commit-msg)
+# =====================================================================
+# Runs on:
+#   - pull_request (title + all commits)
+#   - push to main (single commit guard)
+#
+# Mirrors the local hook in .githooks/commit-msg:
+#   pattern: ^(feat|fix|docs|chore|refactor|test|ci|build|perf|style|revert)(\(.+\))?: .+
+#   subject <= 72 chars
+#
+# Uses wagoid/commitlint-github-action (zero Node setup in runner).
+# For local checks: git config core.hooksPath .githooks
+# =====================================================================
+
+name: Commitlint
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: commitlint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  commitlint:
+    name: Conventional Commits
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commits (PR)
+        if: github.event_name == 'pull_request'
+        uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: .commitlintrc.json
+          failOnWarnings: false
+          helpURL: https://www.conventionalcommits.org/
+
+      - name: Validate commits (push to main)
+        if: github.event_name == 'push'
+        uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: .commitlintrc.json
+          failOnWarnings: false
