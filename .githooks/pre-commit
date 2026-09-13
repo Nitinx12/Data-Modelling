@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# .githooks/pre-commit — fast local gate, no uv required for first check
+# For full checks use: pre-commit run --all-files  (reads .pre-commit-config.yaml)
+set -euo pipefail
+
+# Block accidental secret / env commits
+if git diff --cached --name-only | grep -Eq '^\.env(\.docker)?$'; then
+  echo "✖ refusing to commit .env or .env.docker (use .env.example)" >&2
+  exit 1
+fi
+
+# Block large files early (matches pre-commit check-added-large-files 500kb)
+large=$(git diff --cached --name-only | xargs -I{} sh -c 'test -f "{}" && wc -c < "{}"' 2>/dev/null | awk '$1>512000' | wc -l)
+if [ "$large" -gt 0 ]; then
+  echo "⚠ staged file >500KB — if intentional (e.g. jars/*.jar) use: git add -f <file>" >&2
+fi
