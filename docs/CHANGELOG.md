@@ -13,6 +13,12 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 ## [Unreleased]
 
 ### Added
+- `.editorconfig` (LF, 4 space, yaml 2 space) + fix `.gitignore` artifact path `reports/asset/pipeline.mp4`
+- `commitlint` gate — `.commitlintrc.json` + `.github/workflows/commitlint.yml` mirroring `.githooks/commit-msg` (header 72)
+- `dependency review` + `labeler` PR gates — `dependency-review.yml`, `labeler.yml`, `label.yml`
+- `cd` smoke + `release` on tag `v*` — `cd.yml`, `release.yml`
+- `.github/ISSUE_TEMPLATE` — bug report, feature request, contact config
+- root `main.py` shim for `pipeline = "main:main"`, delegates to `scripts/python/main.py`
 - `docs/OPERATIONS.md`: to the point runbook — pipeline stages and their failure conditions, daily checks, log maintenance, what to do when `make pipeline` exits 1, and a cron example.
 - `docs/TROUBLESHOOTING.md`: symptom → cause → fix for setup, environment, pipeline, and CI problems, including the known quirks (broken WSL venv, psql on Windows bash, quarantine tables, non propagating Mongo deletes).
 - `docs/DECISIONS.md`: decision log — ten settled design decisions (D1–D10) and five open items awaiting a data owner (O1–O5), each with its evidence.
@@ -28,6 +34,8 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 - `make test` and `make test-cov` targets for Python unit tests.
 
 ### Changed
+- `ci` workflows — `codeql` `checkout@v7 → v4`, `setup-uv@v3 → v6`, `PYTHONUTF8` for `→`
+- `ruff` pre commit `v0.8.0 → v0.16.5` to match `pyproject.toml`, `polars` typo fix, note update
 - Swapped the README tech stack image for official shields.io logo badges (MongoDB, PostgreSQL, Python, pandas, SQLAlchemy, uv, PyMongo, Rich, ruff, pytest, GitHub Actions, Bash, PowerShell) and removed the now unused `assets/techstack.svg`.
 - Polished `README.md`: added a tech stack image (`assets/techstack.svg`), a colour coded mermaid flow diagram of the pipeline with the DQ pass/fail fork and the read only ops scripts, a compact common commands table, and an annotated repo structure tree. Overview prose tightened and hyphens removed from carried over table text.
 - Swapped the README logo for `assets/new_logo.png`.
@@ -44,6 +52,8 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 - Updated `Makefile`, `docs/scripts.md`, and `CLAUDE.md` to reflect new script and test paths.
 
 ### Fixed
+- `commitlint` headers 73/74 → 58/64 so `header-max-length 72` passes
+- `.gitignore` `__init__.pyreports` split → `reports/asset/pipeline.mp4`, `.pre-commit` ruff rev align
 - Reconciled `docs/Schema.md`, `docs/ERD.md`, and `AGENTS.md` with the current code: `fact_order_process` shown with `customer_key` (ERD blocks, relationship labels, and the odd-one-out bullet now marked resolved), `fact_inventory` documented as 2025 only, a wrong `data_catalog.md` filename reference fixed, and the pre-reorganization paths (`tests/unit/`, `tests/data_quality/`, bare `scripts/`, root `main.py`) updated to `tests/python/unit/`, `tests/sql/data_quality/`, and `scripts/{python,bash,powershell}/`.
 - Reconciled `docs/data_catlog.md` with the code: `fact_inventory` documented as 2025 only (the earlier "covers 2025 and 2026" claim was false), `fact_order_process` column table now shows `customer_key` and describes the new COALESCE-guarded upsert, the resolved design notes (surrogate key, silent row exclusion, NULL-FK dedup) are marked resolved, and three new tracking rows plus §5 glossary entries document Mongo delete non-propagation, the `dim_customers` ranking-timestamp question, and the seven staging tables no model consumes.
 - Reconciled the Known Issues list in `.claude/CLAUDE.md` and `.claude/rules/sql-conventions.md` with the code: removed the entries that were already fixed (`fact_order_process` now stores `customer_key`; `dim_products`/`dim_customers` no longer silently exclude rows; `fact_less_fact` NULL/NULL dedup gap closed by `WHERE NOT EXISTS`), kept the still true ones (staging typos, 2025 only `fact_inventory`), and added three verified open items — MongoDB deletions never propagate downstream (`campaing_sku`: 30 staging rows vs 6 live documents), seven staging tables with no load script, and `dim_customers` dedup ranking on the address `update_at` only.

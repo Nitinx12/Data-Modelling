@@ -41,6 +41,11 @@ via `.github/CODEOWNERS`; the PR template lists what to fill in.
 - **Never commit** `.env`, credentials, `logs/`, or anything
   `make security-check` flags.
 
+## Hooks
+
+- `pre-commit` (ruff + yaml): `uv tool install pre-commit && pre-commit install`
+- `commit-msg` (Conventional Commits): `git config core.hooksPath .githooks` — mirrors CI `commitlint.yml`
+
 ## Before you push
 
 ```bash
@@ -49,8 +54,7 @@ make quality       # data quality loops, must pass
 make security-check
 ```
 
-CI runs the same checks (plus unit tests and CodeQL) on every push and pull
-request — keep them green locally and it stays green there.
+CI mirrors this on every push and PR: `commitlint` → `ci` (lint + unit tests) → `CodeQL` + `dependency review` → `label` → `CD` smoke on `main`, `release` on tag `v*`.
 
 ## Merging
 
