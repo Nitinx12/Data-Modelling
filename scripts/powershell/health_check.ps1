@@ -1,11 +1,11 @@
-$ErrorActionPreference = 'Stop'
-
 param (
     [switch]$Deep,
     [string]$DatabaseUrl,
     [switch]$Quiet,
     [switch]$Help
 )
+
+$ErrorActionPreference = 'Stop'
 
 if ($Help) {
     Write-Host "health_check.ps1 - verify project dependencies and external services"
@@ -142,7 +142,7 @@ Write-Header "5. MongoDB"
 try {
     $mongoshCmd = Get-Command mongosh -ErrorAction Stop
     $mongoUri = if ($env:MONGO_URI) { $env:MONGO_URI } else { "mongodb://localhost:27017" }
-    $mongoPing = mongosh --quiet --eval 'db.runCommand({ping:1}).ok' --uri $mongoUri 2>$null
+    $mongoPing = mongosh $mongoUri --quiet --eval 'db.runCommand({ping:1}).ok' 2>$null
 
     if ($mongoPing -eq "1") {
         Write-Ok "MongoDB ping ok at $mongoUri"

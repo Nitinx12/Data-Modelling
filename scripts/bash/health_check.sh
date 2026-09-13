@@ -156,7 +156,7 @@ if ! command -v mongosh >/dev/null 2>&1; then
   warn "mongosh not on PATH — skipping MongoDB ping"
 else
   MONGO_URI_VAL="${MONGO_URI:-mongodb://localhost:27017}"
-  MONGO_PING="$(MONGO_URI="${MONGO_URI_VAL}" mongosh --quiet --eval 'db.runCommand({ping:1}).ok' 2>&1 || true)"
+  MONGO_PING="$(mongosh "${MONGO_URI_VAL}" --quiet --eval 'db.runCommand({ping:1}).ok' 2>&1 || true)"
   if [[ "${MONGO_PING}" == "1" ]]; then
     ok "MongoDB ping ok at ${MONGO_URI_VAL}"
   else
