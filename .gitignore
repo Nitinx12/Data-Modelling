@@ -147,7 +147,8 @@ logs/
 !logs/.gitkeep
 !output/.gitkeep
 !exports/.gitkeep
-__init__.pyreports/asset/pipeline.mp4
+
+reports/asset/pipeline.mp4
 
 gx/uncommitted/
 
