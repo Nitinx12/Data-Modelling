@@ -1,0 +1,59 @@
+# =====================================================================
+# cd.yml — continuous delivery (manual + post-merge smoke)
+# =====================================================================
+# Warehouse has no hosted deploy — this is a placeholder that:
+#   1) Runs a smoke test on main after CI is green (lint + tests).
+#   2) Allows manual dispatch for ops verification.
+#
+# Replace the `echo` step with your deploy when ready (e.g. db deploy,
+# docs publish, docker push). Keep `workflow_dispatch` for ad-hoc runs.
+# =====================================================================
+
+name: CD
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Post-merge smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONUTF8: "1"
+    # Only run after CI workflow succeeds when triggered by push.
+    # Manual dispatch always runs.
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Sync dependencies
+        run: uv sync --group dev --frozen
+
+      - name: Lint check (smoke)
+        run: uv run ruff check .
+
+      - name: Unit tests (smoke)
+        run: uv run pytest tests/python/unit -q
+
+      - name: CD placeholder
+        run: |
+          echo "CD smoke passed — wire deploy steps here when ready."
+          echo "See docs/GIT_WORKFLOW.md § Merging and ARCHITECTURE.md stages."
