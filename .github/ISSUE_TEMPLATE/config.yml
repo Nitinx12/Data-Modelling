@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "Question / Discussion"
+    url: https://github.com/Nitinx12/Data-Modelling/discussions
+    about: "Ask about pipeline, models, or docs"
+  - name: "Security report"
+    url: https://github.com/Nitinx12/Data-Modelling/blob/main/SECURITY.md
+    about: "Do not file public issues for security — see SECURITY.md"

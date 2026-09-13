@@ -1,0 +1,60 @@
+name: Bug report
+description: Report a pipeline, model, or quality-check bug
+title: "fix: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use `make health-check` and `make security-check` locally before filing.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened and what did you expect?
+      placeholder: "fact_orders grain doubled when ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. `make staging`
+        2. `make models`
+        3. see error in logs/core/...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / output
+      description: Paste relevant `logs/` or `make` output (redact secrets)
+      render: shell
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - models
+        - staging (pg_staging.py)
+        - data quality (run_data_quality_loops.py)
+        - scripts / Makefile
+        - docs
+        - other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I checked `docs/TROUBLESHOOTING.md` and `docs/DECISIONS.md`
+          required: false
+        - label: I did not paste secrets or `.env` contents
+          required: true

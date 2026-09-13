@@ -1,0 +1,41 @@
+name: Feature request
+description: Propose a new model, check, or docs change
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should change and why? Link grain/key/business rule impact.
+      placeholder: "Add fct_campaign_spend grain check ..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - models
+        - tests / data quality
+        - gx
+        - scripts
+        - docs
+        - ci / workflows
+        - other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: checkboxes
+    id: docs
+    attributes:
+      label: Docs impact
+      options:
+        - label: Will need `docs/data_catlog.md` / `docs/ERD.md` / `docs/Schema.md` update if grain or keys change
+          required: false
