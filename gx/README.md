@@ -12,33 +12,47 @@ loops in `tests/`.
 | `04_lp_duplicate_key_checks.sql` | `gx/expectations/duplicate_key_suite.yaml` |
 | `05_lp_orphan_foreign_key_checks.sql` | `gx/expectations/orphan_fk_suite.yaml` |
 
-## Running a suite
+## Running the suites
+
+`scripts/python/gx_run.py` runs every suite (or one named suite) against
+the warehouse. It is also the fourth pipeline stage — `main.py` runs it
+with `--strict` right after the SQL loops, so a failed expectation fails
+the pipeline.
 
 ```bash
-make gx SUITE=required_text_suite
-make gx SUITE=future_date_suite
-make gx SUITE=duplicate_key_suite
-# ...
+uv run scripts/python/gx_run.py                      # all suites, report only
+uv run scripts/python/gx_run.py --strict             # exit 1 if any expectation failed
+uv run scripts/python/gx_run.py --suite orphan_fk_suite
+uv run scripts/python/gx_run.py --list-suites
+
+make gx                                              # all suites
+make gx SUITE=required_text_suite                    # one suite
 ```
 
-`make gx` (no arg) prints the available suites. Suites must be
-executed against a populated warehouse — run `make pipeline` first.
+Suites must be executed against a populated warehouse — run
+`make pipeline` first.
 
-## Initial setup
+## How the runner works
 
-The expectation files here are checked in as the project's source of
-truth. The interactive `gx init` wizard is therefore **not** required —
-just sync dependencies and run a suite:
+Each suite file is a flat list of expectations whose `meta.schema` names
+the target table (`core.fact_orders` and so on). Since one suite spans
+several tables, the runner groups expectations by table and validates each
+group as its own batch, using an ephemeral GX context and a query asset per
+table (`SELECT * FROM <schema>.<table>`). Two placeholders are resolved at
+run time:
 
-```bash
-uv sync
-make gx SUITE=required_text_suite
-```
+- `$today` / `$now` in any kwarg become the current date / time.
+- An empty `value_set` together with `meta.fk_to` (e.g.
+  `core.dim_campaign(campaign_key)`) is populated with the live key set
+  from the referenced dimension — that is what turns
+  `expect_column_values_to_be_in_set` into an orphan FK check.
 
-If you want to author new suites interactively, run:
+Expectations that cannot run as written (an empty `value_set` with no
+`fk_to`, or no `meta.schema` target) are skipped with a `SKIP` line in the
+summary — the two composite uniqueness entries in
+`duplicate_key_suite.yaml` are examples; the SQL loop covers them. Like the
+SQL loops, the runner only ever reads from the database.
 
-```bash
-make gx-init
-```
-
-…which calls `gx init` against the current directory.
+`great_expectations.yml` is not used by `gx_run.py` — the ephemeral
+context is configured entirely in code — but documents the layout you
+would get from `gx init` if you later want a persistent file context.

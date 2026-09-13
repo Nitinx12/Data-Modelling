@@ -2,7 +2,7 @@
 # =========================
 # Expectation suite: core tables should have no blank required text columns.
 # Mirrors tests/01_lp_required_text_checks.sql
-# Usage: gx run --suite gx/expectations/required_text_suite.yaml
+# Usage: uv run scripts/python/gx_run.py --suite required_text_suite
 #        make gx SUITE=required_text_suite
 expectations:
   - expectation_type: expect_column_values_to_not_be_null
@@ -41,11 +41,10 @@ expectations:
       mostly: 1.0
     meta: { schema: core.dim_products }
 
-  - expectation_type: expect_column_values_to_not_be_null
-    kwargs:
-      column: unit_price
-      mostly: 1.0
-    meta: { schema: core.dim_products, reason: "price must be known for line_total calc" }
+  # NOTE: no not-null check on unit_price. The model deliberately keeps
+  # products with invalid prices and NULLs the price out (see
+  # docs/data_catlog.md) — negative_numeric_suite covers "price must be
+  # positive when present" instead, which ignores NULLs.
 
   - expectation_type: expect_column_values_to_not_be_null
     kwargs:

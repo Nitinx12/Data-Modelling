@@ -1,9 +1,10 @@
 # Architecture
 
 This project is a small ELT pipeline: data is pulled from MongoDB into
-Postgres, transformed into a dimensional model, checked for data quality,
-and the logs that all of this produces are kept tidy. Four scripts cover
-these steps — see `scripts.md` for usage details on each.
+Postgres, transformed into a dimensional model, checked for data quality
+(twice — SQL loops, then Great Expectations), and the logs that all of this
+produces are kept tidy. Five scripts cover these steps — see `scripts.md`
+for usage details on each.
 
 ## Pipeline overview
 
@@ -14,10 +15,12 @@ flowchart LR
     Bronze --> Models["run_models.py<br/>dims → facts"]
     Models --> DW[(Postgres<br/>dims & facts)]
     DW --> DQ["run_data_quality_loops.py<br/>read only checks"]
+    DQ --> GX["gx_run.py<br/>Great Expectations suites"]
 
     Staging -.writes.-> Logs[(logs/)]
     Models -.writes.-> Logs
     DQ -.writes.-> Logs
+    GX -.writes.-> Logs
 
     Logs --> Monitor["monitor_logs.sh<br/>summary / clean"]
     Monitor -->|deletes old or<br/>oversized files| Logs
@@ -42,7 +45,12 @@ flowchart LR
    parses those notices into a pass/fail summary — it never modifies
    data.
 
-4. **Log housekeeping (`monitor_logs.sh`)** — All three Python scripts
+4. **GX validation (`gx_run.py`)** — Runs the Great Expectations
+   suites in `gx/expectations/*.yaml` against the `core` tables as a
+   second, independent quality gate, grouping each suite's expectations
+   by target table. Also read only.
+
+5. **Log housekeeping (`monitor_logs.sh`)** — All four Python scripts
    log through `utils.logger` into `logs/`. This shell script reports on
    (or deletes) log files that are too old or too large, always keeping
    the most recently modified file regardless of age or size.
@@ -55,7 +63,7 @@ flowchart LR
 - All Postgres access goes through `utils.connection.get_postgres_engine()`
   and one raw connection/cursor per unit of work (per collection, per
   model file), so one failure doesn't abort the whole run.
-- All three Python scripts pair a human-facing **Rich** console summary
+- All Python scripts pair a human-facing **Rich** console summary
   with full detail sent to `utils.logger`.
 
 ## Directory layout (as referenced by the scripts)
@@ -76,8 +84,8 @@ project/
 ├── scripts/
 │   ├── bash/              # *.sh: monitor_logs, health_check, security_check, setup_dev
 │   ├── powershell/        # *.ps1 equivalents of the bash scripts
-│   └── python/            # *.py: pg_staging, run_models, run_data_quality_loops
-├── gx/                    # Great Expectations suites + runner.py
+│   └── python/            # *.py: pg_staging, run_models, run_data_quality_loops, gx_run
+├── gx/                    # Great Expectations suites (expectations/*.yaml)
 ├── utils/                 # connection.py, engine.py, logger.py
 ├── docs/                  # data catalog, schema, ERD, scripts, changelog
 ├── data/                  # seed inputs / sample data

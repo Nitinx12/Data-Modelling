@@ -35,6 +35,12 @@ A data quality check found bad data. The exact table and predicate are printed
 and logged. Fix the source or model, re-run `make models`, then `make quality`.
 Do not hand edit `core` to make a check pass.
 
+**`make pipeline` exits 1 at the GX stage**
+A Great Expectations suite failed. The summary table names the suite, table,
+and column; the `SKIP` lines list expectations that cannot run as written
+(see `gx/README.md`). The same checks exist as SQL loops, so a GX only
+failure usually means a suite file drifted from the warehouse schema.
+
 **Rows disappear after loading orders or payments**
 Future dated source values are quarantined, not loaded. Check the reject
 tables: `core.fact_order_process_rejects`, `..._payment_rejects`,

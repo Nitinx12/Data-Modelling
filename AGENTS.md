@@ -14,18 +14,19 @@ tables. The warehouse uses the `staging` schema for source-shaped data and the
   logger).
 - `tests/sql/data_quality/`: executable PostgreSQL data-quality SQL. Five focused
   dynamic `DO` loops run after every warehouse load in numeric order.
-- `gx/`: Great Expectations suite — YAML expectation suites and a runner script.
+- `gx/`: Great Expectations suite — YAML expectation suites executed by
+  `scripts/python/gx_run.py`.
 - `sql/`: database and schema bootstrap scripts.
 - `scripts/python/`: ingestion and pipeline scripts (`pg_staging.py`, `run_models.py`,
-  `run_data_quality_loops.py`, `main.py`).
+  `run_data_quality_loops.py`, `gx_run.py`, `main.py`).
 - `scripts/bash/`, `scripts/powershell/`: operational scripts (health check, security
   scan, log monitoring, dev setup), kept in lockstep across the two shells.
 - `docs/`: data catalog, schema, and ERD. Update these when the warehouse
   grain, keys, or business rules change.
 - `utils/`: shared Python configuration, connections, and logging.
 - `scripts/python/main.py`: one-shot pipeline orchestrator — runs `pg_staging.py` →
-  `run_models.py` → `run_data_quality_loops.py` in sequence, failing on the first
-  non-zero exit (the quality stage runs with `--strict`).
+  `run_models.py` → `run_data_quality_loops.py` → `gx_run.py` in sequence, failing on
+  the first non-zero exit (both quality stages run with `--strict`).
 
 ## SQL conventions
 

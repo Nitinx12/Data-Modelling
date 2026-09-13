@@ -8,7 +8,7 @@ script flags and log locations see `docs/scripts.md`.
 ```bash
 make setup-dev        # uv sync, .env scaffold, health check
 make config           # confirm resolved variables
-make pipeline         # staging -> models -> data quality
+make pipeline         # staging -> models -> data quality -> GX
 ```
 
 ## The pipeline
@@ -18,7 +18,8 @@ make pipeline         # staging -> models -> data quality
 | `make staging` | Mongo → `staging`, incremental via `update_at` | Mongo unreachable, bad `.env` |
 | `make models` | Runs `models/*.sql` in dependency order | Any model errors |
 | `make quality` | Read only DQ loops | Nothing (report only) |
-| `make pipeline` | All three, in order | Any stage fails — DQ runs `--strict`, so red data fails the run |
+| `make gx` | Great Expectations suites, read only | Nothing (report only) |
+| `make pipeline` | All four, in order | Any stage fails — DQ and GX run `--strict`, so red data fails the run |
 
 Re-run any single stage on its own; every stage is idempotent.
 

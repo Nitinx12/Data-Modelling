@@ -2,63 +2,69 @@
 # ======================
 # Expectation suite: no date/timestamp column should contain future values.
 # Mirrors tests/02_lp_future_date_checks.sql
+# GX 1.x dropped expect_column_values_to_be_less_than, so the check is
+# expressed as a bound on the column max instead: no future values
+# <=> column max <= today (inclusive, matching the SQL loop's CURRENT_DATE
+# comparison). gx_run.py resolves $today / $now when the run starts.
+# Usage: uv run scripts/python/gx_run.py --suite future_date_suite
+#        make gx SUITE=future_date_suite
 expectations:
-  - expectation_type: expect_column_values_to_be_less_than
+  - expectation_type: expect_column_max_to_be_between
     kwargs:
       column: spend_date
-      value: "$today"
+      max_value: "$today"
     meta: { schema: core.fact_campaign_spend }
 
-  - expectation_type: expect_column_values_to_be_less_than
+  - expectation_type: expect_column_max_to_be_between
     kwargs:
       column: order_date
-      value: "$today"
+      max_value: "$today"
     meta: { schema: core.fact_orders }
 
-  - expectation_type: expect_column_values_to_be_less_than
+  - expectation_type: expect_column_max_to_be_between
     kwargs:
       column: ship_date
-      value: "$today"
+      max_value: "$today"
     meta: { schema: core.fact_order_process }
 
-  - expectation_type: expect_column_values_to_be_less_than
+  - expectation_type: expect_column_max_to_be_between
     kwargs:
       column: delivery_date
-      value: "$today"
+      max_value: "$today"
     meta: { schema: core.fact_order_process }
 
-  - expectation_type: expect_column_values_to_be_less_than
+  - expectation_type: expect_column_max_to_be_between
     kwargs:
       column: invoice_date
-      value: "$today"
+      max_value: "$today"
     meta: { schema: core.fact_order_process }
 
-  - expectation_type: expect_column_values_to_be_less_than
+  - expectation_type: expect_column_max_to_be_between
     kwargs:
       column: pay_date
-      value: "$today"
+      max_value: "$today"
     meta: { schema: core.fact_order_process }
 
-  - expectation_type: expect_column_values_to_be_less_than
+  - expectation_type: expect_column_max_to_be_between
     kwargs:
       column: start_date
-      value: "$today"
+      max_value: "$today"
     meta: { schema: core.dim_campaign }
 
-  - expectation_type: expect_column_values_to_be_less_than
+  - expectation_type: expect_column_max_to_be_between
     kwargs:
       column: source_updated_at
-      value: "$now"
+      max_value: "$now"
     meta: { schema: core.dim_customers }
 
-  - expectation_type: expect_column_values_to_be_less_than
+  - expectation_type: expect_column_max_to_be_between
     kwargs:
       column: source_updated_at
-      value: "$now"
+      max_value: "$now"
     meta: { schema: core.dim_products }
 
-  - expectation_type: expect_column_values_to_be_less_than
+  - expectation_type: expect_column_max_to_be_between
     kwargs:
       column: source_updated_at
-      value: "$now"
+      max_value: "$now"
     meta: { schema: core.dim_geo }

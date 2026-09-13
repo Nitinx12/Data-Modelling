@@ -42,12 +42,14 @@ flowchart LR
     end
 
     DQ["Data quality loops<br/>(read only, catalog driven)"]
+    GX["Great Expectations suites<br/>(read only, gx_run.py)"]
     AN["sql/analytics/<br/>(ad hoc KPI queries)"]
 
     M1 -->|"pg_staging.py<br/>incremental via update_at"| S1
     S1 -->|"run_models.py<br/>dims then facts"| D1
     D1 --> F1
     F1 -->|"run_data_quality_loops.py --strict"| DQ
+    DQ -->|"gx_run.py --strict"| GX
     F1 --> AN
 ```
 

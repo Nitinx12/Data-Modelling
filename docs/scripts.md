@@ -70,6 +70,31 @@ uv run scripts/python/run_data_quality_loops.py --strict    # exit 1 if any chec
 | Console | Rich rule per loop, red `FAIL` lines, final summary table |
 | Exit behavior | `0` by default regardless of failed checks (report only); `1` with `--strict` if any check failed. `main.py` always passes `--strict` |
 
+## `scripts/python/gx_run.py`
+
+Runs the Great Expectations suites in `gx/expectations/` against the
+warehouse — the second, independent data quality gate after the SQL loops.
+Each suite file is a flat list of expectations whose `meta.schema` names
+the target table, so the script groups them by table and validates each
+group as its own batch. `$today` / `$now` tokens and empty `value_set`
+placeholders (resolved from `meta.fk_to`) are filled in at run time;
+expectations that cannot run as written are skipped with a `SKIP` line.
+Like the SQL loops, this script never writes to the database.
+
+```bash
+uv run scripts/python/gx_run.py                       # all suites, report only
+uv run scripts/python/gx_run.py --strict              # exit 1 if any expectation failed
+uv run scripts/python/gx_run.py --suite orphan_fk_suite   # one suite (repeatable)
+uv run scripts/python/gx_run.py --list-suites         # list suite names and exit
+```
+
+| | |
+|---|---|
+| Suite files | `gx/expectations/*.yaml` (see `gx/README.md`) |
+| Logs | via `utils.logger`, `tests` subdir |
+| Console | Rich rule per suite, red `FAIL` / yellow `SKIP` lines, final summary table |
+| Exit behavior | `0` report only; `1` with `--strict` if any expectation failed or a suite could not run; `2` usage error. `main.py` always passes `--strict` |
+
 ## `scripts/bash/monitor_logs.sh`
 
 Reports on, or cleans up, the log files written by the three scripts
@@ -103,15 +128,16 @@ MAX_AGE_DAYS=14 MAX_SIZE_MB=10 ./monitor_logs.sh clean
 ## `scripts/python/main.py`
 
 One-shot pipeline orchestrator. Runs `pg_staging.py` → `run_models.py` →
-`run_data_quality_loops.py` in sequence, as a single Python process that
-invokes each script via `uv run` and inspects the exit code before
-proceeding. Useful for cron, CI, and ad-hoc end-to-end runs without
-typing three `make` invocations.
+`run_data_quality_loops.py` → `gx_run.py` in sequence, as a single Python
+process that invokes each script via `uv run` and inspects the exit code
+before proceeding. Useful for cron, CI, and ad-hoc end-to-end runs without
+typing four `make` invocations.
 
 ```bash
 uv run scripts/python/main.py                            # full pipeline, stop on first failure
 uv run scripts/python/main.py --skip-staging             # models + quality only
-uv run scripts/python/main.py --skip-quality             # staging + models only
+uv run scripts/python/main.py --skip-quality             # staging + models + GX only
+uv run scripts/python/main.py --skip-gx                  # staging + models + SQL loops only
 uv run scripts/python/main.py --continue-on-error        # keep going past model failures
 uv run scripts/python/main.py --help-stages              # show what each stage does
 ```

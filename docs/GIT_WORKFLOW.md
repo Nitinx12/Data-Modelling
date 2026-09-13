@@ -51,6 +51,7 @@ via `.github/CODEOWNERS`; the PR template lists what to fill in.
 ```bash
 make lint          # ruff, must be clean
 make quality       # data quality loops, must pass
+make gx            # Great Expectations suites, must pass
 make security-check
 ```
 

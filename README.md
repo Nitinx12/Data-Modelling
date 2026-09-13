@@ -44,8 +44,10 @@ flowchart LR
     M[("MongoDB")] -->|"pg_staging.py<br/>incremental upsert"| S[("staging<br/>17 tables")]
     S -->|"run_models.py<br/>dims then facts"| C[("core<br/>5 dims · 5 facts")]
     C -->|"run_data_quality_loops.py --strict"| Q{{"DQ loops<br/>read only"}}
-    Q -->|"all pass"| G["✓ green run"]
-    Q -->|"any fail"| F["✗ exit 1"]
+    Q -->|"all pass"| GX{{"gx_run.py --strict<br/>Great Expectations"}}
+    GX -->|"all pass"| G["✓ green run"]
+    GX -->|"any fail"| F["✗ exit 1"]
+    Q -->|"any fail"| F
     C --> A["sql/analytics<br/>KPI queries"]
 
     subgraph OPSBOX ["ops — read only, never writes"]
@@ -70,19 +72,19 @@ flowchart LR
     class M source
     class S stage
     class C,A core
-    class Q dq
+    class Q,GX dq
     class G ok
     class F bad
     class H,SC,L ops
 ```
 
-`make pipeline` runs the staging → models → quality chain in one command.
+`make pipeline` runs the staging → models → quality → GX chain in one command.
 The ops scripts verify and maintain the result without ever writing to it.
 
 ```Bash
 make setup-dev          # uv sync + .env scaffold + health check (one time)
 make config             # confirm resolved variables
-make pipeline           # staging load -> models -> data quality
+make pipeline           # staging load -> models -> data quality -> GX
 make install            # install/sync all project dependencies via uv
 make check-env          # Verify a .env file exists before running anything DB-related
 make lint               # Run ruff checks over the codebase (no changes made)
@@ -91,6 +93,7 @@ make format-check       # Check formatting with ruff without changing files
 make staging            # Load every Mongo collection into staging
 make models             # Run every model in sequence, in dependency order
 make quality            # Run the read only data quality SQL loops
+make gx                 # Run the Great Expectations suites (all, or one by name)
 make analytics          # SQL analytics queries
 make health-check       # Verify tools, env, DBs, logs, and venv.
 make clean              # Remove Python cache artifacts (safe — no data or log deletion)
@@ -103,7 +106,7 @@ make clean              # Remove Python cache artifacts (safe — no data or log
 Data-Modelling/
 ├── models/                  # dimension + fact load SQL (run by run_models.py)
 ├── scripts/
-│   ├── python/              # pipeline: pg_staging, run_models, quality, main
+│   ├── python/              # pipeline: pg_staging, run_models, quality, gx, main
 │   ├── bash/                # ops: health, security, logs, setup, pipeline
 │   └── powershell/          # Windows equivalents, kept in lockstep
 ├── sql/
@@ -114,7 +117,7 @@ Data-Modelling/
 ├── tests/
 │   ├── python/unit/         # pytest unit tests for utils/
 │   └── sql/data_quality/    # the five read only DQ loops
-├── gx/                      # Great Expectations suites + runner
+├── gx/                      # Great Expectations suites (run by gx_run.py)
 ├── docs/                    # reference docs (catalog, ERD, runbook, decisions)
 ├── utils/                   # shared Python: engine, connection, logger
 ├── assets/                  # logo and diagrams

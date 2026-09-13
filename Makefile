@@ -4,10 +4,11 @@
 # Thin wrapper around this project's scripts so the full pipeline, or
 # any single stage of it, can be run with one command:
 #
-#   make pipeline              staging load -> models -> data quality
+#   make pipeline              staging load -> models -> data quality -> GX
 #   make staging               Mongo -> Postgres staging load (pg_staging.py)
 #   make models                run warehouse model SQL in sequence (run_models.py)
 #   make quality               run read-only data quality loops (run_data_quality_loops.py)
+#   make gx                    run Great Expectations suites (gx_run.py, read-only)
 #   make analytics             apply analytics-schema SQL (functions/marts) via psql
 #   make test                  run pytest unit tests (tests/unit/)
 #   make test-cov              run pytest with coverage report
@@ -142,15 +143,15 @@ models-continue: check-env ## Run every model, continuing past failures instead 
 
 # =====================================================================
 # Data quality — run_data_quality_loops.py (reads tests/data_quality/*_lp_*.sql)
+# and gx_run.py (reads gx/expectations/*.yaml)
 # =====================================================================
 quality: check-env ## Run the read-only data quality SQL loops
 	$(PY) $(SCRIPTS_DIR)/python/run_data_quality_loops.py
 
 dq: quality ## Alias for `quality`
 
-gx: check-env ## Run a Great Expectations suite — make gx SUITE=required_text_suite
-	@test -n "$(SUITE)" || (echo 'Usage: make gx SUITE=<suite_name>' && exit 1)
-	$(PY) gx/runner.py $(SUITE)
+gx: check-env ## Run all Great Expectations suites — or one via make gx SUITE=<name>
+	$(PY) $(SCRIPTS_DIR)/python/gx_run.py $(if $(SUITE),--suite $(SUITE),)
 
 # =====================================================================
 # Analytics schema — dynamic functions / marts (applied via psql, not
@@ -214,10 +215,10 @@ setup-dev: ## Run scripts/setup_dev.sh — uv sync, .env scaffold, health check
 # =====================================================================
 # Full pipeline
 # =====================================================================
-pipeline: staging models quality ## Run staging load -> models -> data quality, in order
+pipeline: staging models quality gx ## Run staging load -> models -> data quality -> GX, in order
 	@echo "Pipeline complete."
 
-pipeline-continue: staging models-continue quality ## Same as `pipeline`, but models keep running past failures
+pipeline-continue: staging models-continue quality gx ## Same as `pipeline`, but models keep running past failures
 	@echo "Pipeline complete (continue-on-error)."
 
 pipeline-main: ## Run the full pipeline via main.py (stops on first failure)

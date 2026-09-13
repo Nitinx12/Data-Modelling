@@ -6,10 +6,11 @@ One-shot pipeline orchestrator: runs the full ELT pipeline in sequence.
     uv run main.py                    # full pipeline: staging -> models -> data quality
     uv run main.py --skip-staging    # models + data quality only (staging already done)
     uv run main.py --skip-models     # staging + data quality only
+    uv run main.py --skip-gx         # staging + models + SQL loops only (no GX)
     uv run main.py --continue-on-error   # keep going past model failures
 
 Equivalent to:
-    make staging && make models && make quality
+    make staging && make models && make quality && make gx
 
 Exit codes:
     0   all stages completed successfully
@@ -31,7 +32,11 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 # encode the ✓/✗ status glyphs, which would crash the final summary with a
 # UnicodeEncodeError after all stages already ran. Force UTF-8 output.
 for _stream in (sys.stdout, sys.stderr):
-    if _stream and _stream.encoding and _stream.encoding.lower() not in ("utf-8", "utf8"):
+    if (
+        _stream
+        and _stream.encoding
+        and _stream.encoding.lower() not in ("utf-8", "utf8")
+    ):
         _stream.reconfigure(encoding="utf-8", errors="replace")
 
 
@@ -69,6 +74,11 @@ def main() -> int:
         help="Skip the data quality checks step.",
     )
     parser.add_argument(
+        "--skip-gx",
+        action="store_true",
+        help="Skip the Great Expectations data quality gate.",
+    )
+    parser.add_argument(
         "--continue-on-error",
         action="store_true",
         help="Continue past model failures instead of stopping.",
@@ -85,7 +95,8 @@ def main() -> int:
         print("  1. pg_staging.py   — MongoDB -> Postgres staging (incremental)")
         print("  2. run_models.py   — dims + facts in core schema (ordered)")
         print("  3. run_data_quality_loops.py — read-only SQL audit checks")
-        print("\nAll three stages are enabled by default. Use --skip-* to disable.")
+        print("  4. gx_run.py       — Great Expectations suite validation (read-only)")
+        print("\nAll four stages are enabled by default. Use --skip-* to disable.")
         return 0
 
     total_start = time.monotonic()
@@ -104,6 +115,11 @@ def main() -> int:
         stages.append(
             ("DATA QUALITY", SCRIPTS_DIR / "run_data_quality_loops.py", ["--strict"])
         )
+
+    if not args.skip_gx:
+        # Second quality gate, same contract: --strict makes a failed
+        # expectation fail the pipeline.
+        stages.append(("GX DATA QUALITY", SCRIPTS_DIR / "gx_run.py", ["--strict"]))
 
     if not stages:
         print("Error: all stages disabled. Nothing to do.", file=sys.stderr)

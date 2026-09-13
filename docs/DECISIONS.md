@@ -15,7 +15,7 @@ decision before anything changes.
 | D5 | `dim_orders_flag` is a junk dimension, insert only (`ON CONFLICT DO NOTHING`) — the attribute combination is the identity. |
 | D6 | `fact_less_fact` carries no measures on purpose — it records only that a campaign promoted a SKU. |
 | D7 | Staging keeps source typos (`campaing_logs`, `addres`, …) exactly as they arrive; renaming would break every consumer. |
-| D8 | Data quality loops are read only and catalog driven; `main.py` runs them with `--strict` so red data fails the pipeline. |
+| D8 | Data quality is double gated: the read only, catalog driven SQL loops and the Great Expectations suites in `gx/`, both run by `main.py` with `--strict` so red data fails the pipeline. |
 | D9 | Future dated source values are quarantined in reject tables and self healed out of the fact on later runs, rather than failing the load. |
 | D10 | `fact_inventory` unpivots a hard coded 2025 month list; extend it when 2026 columns land in staging. |
 

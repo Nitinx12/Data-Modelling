@@ -15,6 +15,8 @@ Every script follows the same two level loop pattern:
 
 Because everything is driven by catalog metadata rather than a fixed list, the scripts automatically pick up new tables and columns as the schema grows. Nothing needs to be updated by hand when a new table lands in `core` or `staging`.
 
+A second, independent gate re-checks the `core` warehouse with Great Expectations suites (`gx/expectations/*.yaml`, run by `scripts/python/gx_run.py` — see `gx/README.md`). The pipeline runs both gates in sequence, each with `--strict`.
+
 ## The five checks
 
 ### 1. Required text checks — `01_lp_required_text_checks.sql`

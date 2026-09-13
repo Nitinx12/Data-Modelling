@@ -13,6 +13,11 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 ## [Unreleased]
 
 ### Added
+- `scripts/python/gx_run.py`: runs the Great Expectations suites in `gx/expectations/` as a second, read only data quality gate alongside the SQL loops. Groups each suite's expectations by their `meta.schema` target table, resolves `$today`/`$now` tokens and empty `value_set` placeholders from `meta.fk_to` at run time, prints a Rich summary table with `FAIL`/`SKIP` lines, and supports `--strict`, `--suite`, and `--list-suites`.
+- GX gate wired into the pipeline: `main.py` runs `gx_run.py --strict` as a fourth stage (`--skip-gx` to skip), and the Makefile `pipeline`/`pipeline-continue` targets now end with `gx`.
+- `make gx` now runs all suites by default and one suite via `make gx SUITE=<name>`, wrapping `scripts/python/gx_run.py` instead of the old stub runner.
+- Unit tests for the pure helpers in `gx_run.py` (suite loading, table grouping, token and `fk_to` resolution, expectation preparation) in `tests/python/unit/test_gx_run.py`.
+- `pyyaml` as a direct dependency for parsing the GX suite files.
 - `.editorconfig` (LF, 4 space, yaml 2 space) + fix `.gitignore` artifact path `reports/asset/pipeline.mp4`
 - `commitlint` gate — `.commitlintrc.json` + `.github/workflows/commitlint.yml` mirroring `.githooks/commit-msg` (header 72)
 - `dependency review` + `labeler` PR gates — `dependency-review.yml`, `labeler.yml`, `label.yml`
@@ -34,6 +39,7 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 - `make test` and `make test-cov` targets for Python unit tests.
 
 ### Changed
+- `gx/README.md` and `docs/scripts.md`: document `gx_run.py` (how the runner resolves placeholders, what gets skipped, exit codes) and the expanded `main.py` stage list.
 - `ci` workflows — `codeql` `checkout@v7 → v4`, `setup-uv@v3 → v6`, `PYTHONUTF8` for `→`
 - `ruff` pre commit `v0.8.0 → v0.16.5` to match `pyproject.toml`, `polars` typo fix, note update
 - Swapped the README tech stack image for official shields.io logo badges (MongoDB, PostgreSQL, Python, pandas, SQLAlchemy, uv, PyMongo, Rich, ruff, pytest, GitHub Actions, Bash, PowerShell) and removed the now unused `assets/techstack.svg`.
@@ -52,6 +58,8 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 - Updated `Makefile`, `docs/scripts.md`, and `CLAUDE.md` to reflect new script and test paths.
 
 ### Fixed
+- `gx/expectations/required_text_suite.yaml` demanded `dim_products.unit_price` be non-null, but the model deliberately keeps products with invalid prices and NULLs the price out (documented in `docs/data_catlog.md`) — the gate was red on a known, intended state. The expectation is removed; `negative_numeric_suite` already checks "positive when present", which ignores NULLs.
+- `gx/expectations/future_date_suite.yaml` used `expect_column_values_to_be_less_than`, an expectation removed in Great Expectations 1.x, so the suite could never have executed. Rewritten as `expect_column_max_to_be_between` with `max_value: $today`/`$now` — no future values is equivalent to the column max being at most now — resolved at run time by `gx_run.py`.
 - `scripts/python/main.py` crashed with `UnicodeEncodeError` on Windows cp1252 consoles: all three pipeline stages ran to completion, then the final `✓ All stages completed successfully.` print died on a glyph cp1252 cannot encode, leaving a traceback and a nonzero exit for a fully green run. stdout/stderr are now reconfigured to UTF-8 at startup; the pipeline exits 0 again.
 - Regenerated `uv.lock`: `pyproject.toml` had already corrected the `polors` typo to `polars`, but the lockfile still pinned the typo package and `uv sync` kept installing it. Also rebuilt `.venv` as a native Windows venv — it had been created from WSL (`pyvenv.cfg` pointed at a Linux interpreter) and was unusable from Windows.
 - `security_check.sh` / `security_check.ps1` no longer scan gitignored build dirs: the embedded DSN grep and the private key find both matched `.venv/` site packages (docstring example DSNs, certifi's cacert.pem), failing the check with exit 1 on a clean checkout. `.venv/` and `node_modules/` are now excluded from both scans, in both scripts.
@@ -82,6 +90,9 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 - Fixed `fact_orders` product join referencing `OI."ProductCode"` (column does not exist on `staging.order_line_items`); changed to `P.product_name = OI."ProductName"` so the join resolves against the real staging schema.
 - Fixed `run_models.py` `BASE_DIR` path from `parents[1]` to `parents[2]` to account for the `scripts/` → `scripts/python/` reorganization; updated the inline comment accordingly.
 - Updated `ARCHITECTURE.md` directory layout to reflect the current `scripts/python/`, `scripts/bash/`, `scripts/powershell/`, `tests/sql/data_quality/`, and `tests/python/unit/` structure.
+
+### Removed
+- `gx/runner.py`: a stub that loaded a suite file but never validated anything (it ended by printing "wire up a Batch Request + Validation Definition in your runner"). Superseded by `scripts/python/gx_run.py`, which executes the suites end to end; the suites themselves stay in `gx/expectations/`.
 
 ---
 
