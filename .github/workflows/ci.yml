@@ -1,16 +1,16 @@
 # =====================================================================
-# ci.yml — linting + unit tests for every push and PR
+# ci.yml — linting + unit tests + full pipeline with ephemeral DBs
 # =====================================================================
 # Runs on:
 #   - push to main
 #   - pull_request against main
 #
-# This is intentionally DB-free.  The unit tests in tests/python/unit/ mock all
-# external clients (sqlalchemy, pymongo, databricks_sql), so they run in
-# seconds on a clean GitHub-hosted runner with no services attached.
-#
-# For DB-touching checks (data-quality loops, full pipeline), run them
-# locally or wire a separate job with a Postgres service container.
+# Two jobs:
+#   1) lint-and-test — DB-free, mocks all external clients (seconds)
+#   2) pipeline      — ephemeral Postgres + Mongo service containers,
+#                      seeds both via docker/* init, then runs `make pipeline`
+#                      (staging -> models -> quality -> GX with --strict)
+#                      A CI badge that proves real ELT works, not just mocks.
 # =====================================================================
 
 name: CI
@@ -73,3 +73,87 @@ jobs:
           path: htmlcov/
           retention-days: 7
           if-no-files-found: ignore
+
+  pipeline:
+    name: Warehouse pipeline (DB)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: lint-and-test
+    env:
+      PYTHONUTF8: "1"
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DATABASE: data_warehouse
+      POSTGRES_USERNAME: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_SCHEMA_BRONZE: staging
+      POSTGRES_SCHEMA_STAGING: staging
+      POSTGRES_SCHEMA_SILVER: core
+      POSTGRES_SCHEMA_CORE: core
+      POSTGRES_SCHEMA_GOLD: analytics
+      POSTGRES_SCHEMA_ANALYTICS: analytics
+      MONGO_URI: mongodb://localhost:27017
+      MONGO_DB: source
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: data_warehouse
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready -U user -d data_warehouse
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      mongo:
+        image: mongo:7
+        ports: ["27017:27017"]
+        options: >-
+          --health-cmd mongosh --quiet --eval "db.adminCommand('ping').ok" --health-interval 5s --health-timeout 5s --health-retries 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Sync dependencies
+        run: uv sync --group dev --frozen
+
+      - name: Install psql + mongosh (runner has no DB clients by default)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
+          # mongosh via npm is fastest on GH runners (node preinstalled); fallback to apt if needed
+          if ! command -v mongosh >/dev/null 2>&1; then
+            npm install -g mongosh
+          fi
+          psql --version
+          mongosh --version
+
+      - name: Bootstrap Postgres schemas
+        run: PGPASSWORD=password psql -h localhost -U user -d data_warehouse -v ON_ERROR_STOP=1 -f docker/postgres-init/01_schemas.sql
+
+      - name: Seed MongoDB (source)
+        run: mongosh mongodb://localhost:27017/source --eval "load('docker/mongo-seed/01_seed.js')"
+
+      - name: Verify DBs
+        run: |
+          PGPASSWORD=password psql -h localhost -U user -d data_warehouse -c "\dn"
+          mongosh mongodb://localhost:27017/source --quiet --eval "db.getCollectionNames()"
+
+      - name: Run full pipeline (staging -> models -> quality -> GX)
+        run: make pipeline
+
+      - name: Dagster — definitions load check
+        run: uv run python -c "from orchestration.definitions import defs; print(f'{len(defs.assets)} assets, {len(defs.jobs)} jobs')"
