@@ -9,6 +9,11 @@
   orchestrated with a thin Makefile.
 </p>
 
+<p align="center">
+  <strong>🔗 <a href="https://your-app-name.streamlit.app">Live Dashboard →</a></strong><br>
+  <em>Built on the <code>core</code> dimensional warehouse — order fulfillment funnel, sales, marketing spend, and inventory, refreshed from the ELT pipeline below. Replace the URL after deploying <code>dashboard/</code> to Streamlit Community Cloud.</em>
+</p>
+
 ---
 
 ## Overview
@@ -108,6 +113,7 @@ Data-Modelling/
 │   ├── Dockerfile           # pipeline image (Python 3.13 + uv)
 │   ├── postgres-init/       # 01_schemas.sql — mounted to postgres entrypoint
 │   └── mongo-seed/          # 01_seed.js — seeded into mongo `source` DB
+├── dashboard/               # Streamlit app on core (Home + 5 pages, lib/db + charts)
 ├── docker-compose.yml       # postgres + mongo + pipeline (one-command demo)
 ├── .dockerignore
 ├── models/                  # dimension + fact load SQL (run by run_models.py)
@@ -148,6 +154,30 @@ docker compose run --rm pipeline make test
 ```
 
 Services: `postgres:16-alpine` (schemas via `docker/postgres-init/01_schemas.sql`), `mongo:7` (seeded via `docker/mongo-seed/01_seed.js` into `source`), `pipeline` (Python 3.13 + `uv`, depends on both DBs healthy). All Docker assets live under `docker/`.
+
+## Dashboard (Streamlit on `core`)
+
+Live warehouse → deployed app. Pages map 1:1 to fact tables so the dashboard reads as intentional, not generic:
+
+- **Overview** `Home.py` — KPI cards: order lines, orders, paid rate, campaign spend, inventory, SCD2 versions
+- **Order Fulfillment** — funnel Ordered → Shipped → Delivered → Invoiced → Paid from `fact_order_process` (accumulating snapshot, COALESCE-guarded milestones)
+- **Sales** — revenue trend, top products, ship-to vs bill-to (`dim_geo` role-playing), junk dim breakdown
+- **Marketing** — spend over time + factless `fact_less_fact` coverage (shared `dim_campaign`/`dim_products`)
+- **Inventory** — periodic snapshot `fact_inventory` (2025 months unpivoted) by category
+- **Pipeline Health** — row counts, SCD2 history, orphan keys, quarantine tables (double-gated quality)
+
+```bash
+# local against your cloud Postgres (not localhost in prod)
+pip install -r dashboard/requirements.txt
+# set dashboard/.streamlit/secrets.toml from .streamlit/secrets.toml.example
+streamlit run dashboard/Home.py   # http://localhost:8501
+
+# alt: via uv + cloud DB
+uv sync --group dev
+uv run streamlit run dashboard/Home.py
+```
+
+Deploy: push `dashboard/` to GitHub → [share.streamlit.io](https://share.streamlit.io) → New app → `dashboard/Home.py` → paste `[postgres]` TOML into Secrets → deploy. See `dashboard/README.md` for Neon/Supabase setup (`pg_dump -n core` + read-only `dashboard_reader` role) and refresh options.
 
 ## Requirements (local, without Docker)
 

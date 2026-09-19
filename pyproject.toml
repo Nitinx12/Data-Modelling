@@ -49,7 +49,11 @@ dev = [
     "great-expectations>=1.0.0",
     "dagster>=1.8.0",
     "dagster-webserver>=1.8.0",
+    "streamlit>=1.38",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"dashboard/**/*.py" = ["BLE001", "S110", "C408", "S603", "S607"]
 
 [tool.pytest.ini_options]
 minversion = "9.0"

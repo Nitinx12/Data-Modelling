@@ -149,6 +149,12 @@ dagster_home/
 storage/
 
 # ==========================
+# Streamlit dashboard
+# ==========================
+dashboard/.streamlit/secrets.toml
+.streamlit/secrets.toml
+
+# ==========================
 # Keep Empty Directories
 # ==========================
 !logs/.gitkeep
