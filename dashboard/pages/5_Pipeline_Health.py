@@ -84,10 +84,10 @@ with st.spinner("Loading health…"):
         c6.metric("fact_inventory", f"{int(counts.fact_inventory):,}")
         c7.metric("fact_less_fact", f"{int(counts.fact_less_fact):,}")
 
-        # SCD2 history visibility
+        # SCD2 history visibility — MAX(bool) doesn't exist in Postgres
         scd2 = run_query(
             """
-            SELECT customer_id, customer_name, COUNT(*) AS versions, MAX(is_current)::INT AS has_current
+            SELECT customer_id, customer_name, COUNT(*) AS versions, MAX(is_current::INT) AS has_current
             FROM core.dim_customers
             GROUP BY customer_id, customer_name
             HAVING COUNT(*) > 1
