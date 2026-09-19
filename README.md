@@ -22,7 +22,7 @@
 </p>
 
 <p align="center">
-  <a href="https://your-app-name.streamlit.app"><img src="https://img.shields.io/badge/Live_Dashboard-→-FF4B4B?style=flat&logo=streamlit&logoColor=white" alt="Live Dashboard"></a>
+  <a href="https://data-modelling-uclgdbxwbuwhw9dtk4q9t8.streamlit.app"><img src="https://img.shields.io/badge/Live_Dashboard-→-FF4B4B?style=flat&logo=streamlit&logoColor=white" alt="Live Dashboard"></a>
   <a href="https://github.com/Nitinx12/Data-Modelling"><img src="https://img.shields.io/badge/GitHub-Nitinx12-181717?style=flat&logo=github&logoColor=white" alt="GitHub"></a>
 </p>
 
@@ -37,7 +37,7 @@
 ## Live Dashboard — `core` warehouse
 
 <p align="center">
-  <a href="https://your-app-name.streamlit.app"><img src="assets/new_logo.png" alt="Warehouse Dashboard" width="640"></a><br>
+  <a href="https://data-modelling-uclgdbxwbuwhw9dtk4q9t8.streamlit.app"><img src="assets/new_logo.png" alt="Warehouse Dashboard" width="640"></a><br>
   <em>Seeded demo DB — not the live pipeline. See <code>dashboard/README.md</code> + <code>docs/HOSTING.md</code>.</em>
 </p>
 
