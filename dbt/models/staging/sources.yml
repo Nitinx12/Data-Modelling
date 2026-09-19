@@ -1,0 +1,33 @@
+version: 2
+
+sources:
+  - name: staging
+    database: "{{ env_var('POSTGRES_DATABASE', 'data_warehouse') }}"
+    schema: staging
+    tables:
+      # Consumed by dims/facts (see docs/data_catlog.md §5)
+      - name: cust_master
+      - name: customer_contach
+      - name: user_details
+      - name: addres
+      - name: cities
+      - name: campaing_logs
+      - name: campaing_sku
+      - name: products
+      - name: subcategory
+      - name: channels
+      - name: orders_2025
+      - name: orders_2026
+      - name: order_line_items
+      - name: inventory
+      - name: shipments
+      - name: invoices
+      - name: payments
+      # Unconsumed — extracted but no model reads them (O2)
+      - name: dim_orders
+      - name: exchange_rate
+      - name: invoice_inlines
+      - name: region
+      - name: security
+      - name: sheet_1
+      - name: target_revenue
