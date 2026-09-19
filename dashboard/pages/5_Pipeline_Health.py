@@ -8,6 +8,45 @@ st.caption(
 )
 
 with st.spinner("Loading health…"):
+    # Pipeline run log — observability (core.pipeline_run_log) — roadmap Tier 3 item 8
+    try:
+        log_recent = run_query(
+            """
+            SELECT run_id, stage, model_name, status, duration_ms, row_count, started_at
+            FROM core.pipeline_run_log
+            ORDER BY started_at DESC
+            LIMIT 20
+            """
+        )
+        if not log_recent.empty:
+            st.subheader("Pipeline run log — recent executions")
+            # Show as table + simple duration chart
+            st.dataframe(log_recent, use_container_width=True, hide_index=True)
+            # Pass/fail streak: last 10 runs
+            try:
+                import plotly.express as px
+
+                # Aggregate per run_id: any FAIL in run -> run FAIL
+                runs = log_recent.copy()
+                runs["started_at"] = __import__("pandas").to_datetime(runs["started_at"])
+                fig = px.scatter(
+                    runs,
+                    x="started_at",
+                    y="duration_ms",
+                    color="status",
+                    symbol="stage",
+                    hover_data=["model_name", "row_count"],
+                    title="Recent run durations (ms) — color by status",
+                    color_discrete_map={"PASS": "#10B981", "FAIL": "#EF4444", "SKIP": "#F59E0B"},
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            except Exception:
+                pass
+        else:
+            st.caption("No pipeline_run_log entries yet — run `make pipeline` to populate observability.")
+    except Exception:
+        st.caption("pipeline_run_log not yet created — run the pipeline once (sql/11_pipeline_run_log.sql creates it).")
+
     # Table counts
     try:
         counts = run_query(
