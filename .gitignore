@@ -172,4 +172,7 @@ data/*.xlsx
 data/*.xls
 
 **/__init__.py
-.qwen
+.qwenfile.txt
+
+file.txt
+.qwen/
