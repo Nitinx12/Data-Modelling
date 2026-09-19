@@ -151,7 +151,7 @@ INSERT INTO core.fact_orders (
     bill_geo_key, 
     source_updated_at
 )
-SELECT
+SELECT DISTINCT ON (O."OrderID", OI."LineID")
     O."OrderID",
     OI."LineID",
     NULLIF(O."OrderDate", '')::DATE,
@@ -169,9 +169,33 @@ SELECT
 FROM tmp_orders_final AS O
 LEFT JOIN tmp_line_items_final AS OI
     ON O."OrderID" = OI."OrderID"
-LEFT JOIN core.dim_customers AS C
-    ON C.customer_name = O."CustomerName"
-LEFT JOIN core.dim_products AS P
+-- SCD2 as-of join: pick the dim_customers version valid at OrderDate.
+-- Falls back to current row when OrderDate is null or no as-of range matches.
+LEFT JOIN LATERAL (
+    SELECT d.customer_key
+    FROM core.dim_customers AS d
+    WHERE d.customer_name = O."CustomerName"
+      AND d.customer_name IS NOT NULL
+    ORDER BY
+        CASE
+            WHEN NULLIF(O."OrderDate", '')::DATE IS NOT NULL
+                 AND d.valid_from::DATE <= NULLIF(O."OrderDate", '')::DATE
+                 AND (d.valid_to IS NULL OR d.valid_to::DATE > NULLIF(O."OrderDate", '')::DATE)
+            THEN 0
+            WHEN d.is_current THEN 1
+            ELSE 2
+        END
+        , d.valid_from DESC
+    LIMIT 1
+) AS C ON true
+LEFT JOIN (
+        SELECT
+            product_name
+            , MIN(product_key) AS product_key
+        FROM core.dim_products
+        WHERE product_name IS NOT NULL
+        GROUP BY product_name
+    ) AS P
     ON P.product_name = OI."ProductName"
 -- fallback key for products missing from the catalog
 CROSS JOIN (SELECT product_key FROM core.dim_products WHERE product_code = 'UNKNOWN') AS UNK
@@ -185,6 +209,15 @@ LEFT JOIN core.dim_geo AS BG
     ON BG.city_name = O."BillToCity"
 WHERE OI."LineID" IS NOT NULL
   AND NOT O.is_future_dated
+ORDER BY
+    O."OrderID"
+    , OI."LineID"
+    , COALESCE(NULLIF(OI."update_at", ''), NULLIF(O."update_at", ''))::TIMESTAMP DESC
+-- dedup guard: product_name is not unique in dim_products (e.g. Kitchen M006,
+-- Audio M020 each map to two product_codes) — the grouped joins above collapse
+-- those to one key, but DISTINCT ON + ORDER BY also guards the insert itself
+-- so duplicate (order_id, line_id) from any future join fan-out can never fail
+-- the UPSERT (keep the most recent source row per line)
 ON CONFLICT (order_id, line_id) DO UPDATE SET
     order_date         = EXCLUDED.order_date,
     quantity            = EXCLUDED.quantity,

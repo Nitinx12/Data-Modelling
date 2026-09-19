@@ -47,6 +47,8 @@ dev = [
     "pytest>=9.1.1",
     "pytest-cov>=6.0.0",
     "great-expectations>=1.0.0",
+    "dagster>=1.8.0",
+    "dagster-webserver>=1.8.0",
 ]
 
 [tool.pytest.ini_options]

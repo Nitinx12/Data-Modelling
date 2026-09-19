@@ -1,0 +1,126 @@
+# docker-compose.yml — one-command demo
+#   docker compose up --build          # build + run full ELT (staging -> models -> DQ -> GX)
+#   docker compose down -v             # tear down volumes (fresh seed on next up)
+#   docker compose run --rm pipeline uv run ruff check .
+#   docker compose exec postgres psql -U user -d data_warehouse -c "SELECT * FROM core.dim_customers LIMIT 5;"
+#
+# Services:
+#   postgres  — Postgres 16, schemas created via docker/postgres-init/01_schemas.sql
+#   mongo     — Mongo 7, seeded via docker/mongo-seed/01_seed.js into `source` DB
+#   pipeline  — Python 3.13 + uv, waits for both DBs healthy then runs `make pipeline`
+#   dagster   — Dagster UI (optional, --profile dagster) at http://localhost:3000
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: data_warehouse
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init/01_schemas.sql:/docker-entrypoint-initdb.d/01_schemas.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d data_warehouse"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  mongo:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_DATABASE: source
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+      - ./docker/mongo-seed/01_seed.js:/docker-entrypoint-initdb.d/01_seed.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  pipeline:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    environment:
+      # Postgres — matches postgres service above
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DATABASE: data_warehouse
+      POSTGRES_USERNAME: user
+      POSTGRES_PASSWORD: password
+      # pg_staging.py resolves schema as POSTGRES_SCHEMA_STAGING || POSTGRES_SCHEMA_BRONZE
+      POSTGRES_SCHEMA_BRONZE: staging
+      POSTGRES_SCHEMA_STAGING: staging
+      POSTGRES_SCHEMA_SILVER: core
+      POSTGRES_SCHEMA_CORE: core
+      POSTGRES_SCHEMA_GOLD: analytics
+      POSTGRES_SCHEMA_ANALYTICS: analytics
+      # Mongo — matches mongo service above
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: source
+      # Ensure UTF-8 glyphs (✓/✗) don't crash on narrow locales
+      PYTHONUTF8: 1
+      DATA_MODELLING_NO_DOTENV: 0
+    volumes:
+      # Mount project so model edits don't require rebuild (deps still baked in image)
+      - .:/app
+      - /app/.venv
+      - /app/__pycache__
+      - /app/logs
+    command: ["bash", "-lc", "uv sync --frozen --group dev && make pipeline"]
+    # Keep container alive for `docker compose exec pipeline ...` after pipeline finishes
+    # Comment out `restart` if you want compose to exit when pipeline exits
+    restart: "no"
+
+  dagster:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DATABASE: data_warehouse
+      POSTGRES_USERNAME: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_SCHEMA_BRONZE: staging
+      POSTGRES_SCHEMA_STAGING: staging
+      POSTGRES_SCHEMA_SILVER: core
+      POSTGRES_SCHEMA_CORE: core
+      POSTGRES_SCHEMA_GOLD: analytics
+      POSTGRES_SCHEMA_ANALYTICS: analytics
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: source
+      PYTHONUTF8: 1
+      DATA_MODELLING_NO_DOTENV: 0
+      DAGSTER_HOME: /app
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/.venv
+      - /app/__pycache__
+      - /app/logs
+    command: ["uv", "run", "dagster", "dev", "-m", "orchestration.definitions", "--host", "0.0.0.0", "--port", "3000"]
+    profiles: ["dagster"]
+
+volumes:
+  pgdata:
+  mongodata:

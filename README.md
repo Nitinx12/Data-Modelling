@@ -104,6 +104,12 @@ make clean              # Remove Python cache artifacts (safe — no data or log
 
 ```
 Data-Modelling/
+├── docker/                  # containerized demo
+│   ├── Dockerfile           # pipeline image (Python 3.13 + uv)
+│   ├── postgres-init/       # 01_schemas.sql — mounted to postgres entrypoint
+│   └── mongo-seed/          # 01_seed.js — seeded into mongo `source` DB
+├── docker-compose.yml       # postgres + mongo + pipeline (one-command demo)
+├── .dockerignore
 ├── models/                  # dimension + fact load SQL (run by run_models.py)
 ├── scripts/
 │   ├── python/              # pipeline: pg_staging, run_models, quality, gx, main
@@ -124,7 +130,26 @@ Data-Modelling/
 └── Makefile                 # thin wrappers, no logic
 ```
 
-## Requirements
+## One-command demo (Docker Compose)
+
+No local Postgres or Mongo required — the compose stack seeds both and runs the full ELT:
+
+```bash
+docker compose up --build        # postgres + mongo + pipeline (staging -> models -> DQ -> GX)
+docker compose down -v           # tear down volumes (fresh seed on next up)
+
+# After the run, query the warehouse:
+docker compose exec postgres psql -U user -d data_warehouse -c "SELECT * FROM core.dim_customers LIMIT 5;"
+docker compose exec postgres psql -U user -d data_warehouse -c "SELECT * FROM core.fact_orders LIMIT 5;"
+
+# Or run any make target inside the pipeline container:
+docker compose run --rm pipeline uv run ruff check .
+docker compose run --rm pipeline make test
+```
+
+Services: `postgres:16-alpine` (schemas via `docker/postgres-init/01_schemas.sql`), `mongo:7` (seeded via `docker/mongo-seed/01_seed.js` into `source`), `pipeline` (Python 3.13 + `uv`, depends on both DBs healthy). All Docker assets live under `docker/`.
+
+## Requirements (local, without Docker)
 
 - [`uv`](https://github.com/astral-sh/uv)
 - `bash`

@@ -142,6 +142,13 @@ logs/
 *.pid
 
 # ==========================
+# Dagster
+# ==========================
+.dagster/
+dagster_home/
+storage/
+
+# ==========================
 # Keep Empty Directories
 # ==========================
 !logs/.gitkeep
