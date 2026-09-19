@@ -18,11 +18,14 @@ import argparse
 import logging
 import sys
 import time
+import uuid
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 
 from rich.console import Console
 from rich.table import Table
+from sqlalchemy import text
 
 BASE_DIR = (
     Path(__file__).resolve().parents[2]
@@ -53,6 +56,92 @@ MODEL_SEQUENCE = [
 ]
 
 log = get_logger("model_runner", console_level=logging.WARNING, subdir="core")
+
+# Map model file → core table for row_count (best-effort; quarantine tables ignored)
+MODEL_TO_TABLE = {
+    "dim_products.sql": "core.dim_products",
+    "dim_customers.sql": "core.dim_customers",
+    "dim_geo.sql": "core.dim_geo",
+    "dim_orders_flag.sql": "core.dim_orders_flag",
+    "dim_campaign.sql": "core.dim_campaign",
+    "fact_campaign_spend.sql": "core.fact_campaign_spend",
+    "fact_inventory.sql": "core.fact_inventory",
+    "fact_order_process.sql": "core.fact_order_process",
+    "fact_orders.sql": "core.fact_orders",
+    "fact_less_fact.sql": "core.fact_less_fact",
+}
+
+
+def _ensure_log_table(engine) -> None:
+    ddl = """
+    CREATE SCHEMA IF NOT EXISTS core;
+    CREATE TABLE IF NOT EXISTS core.pipeline_run_log (
+        log_id BIGSERIAL PRIMARY KEY,
+        run_id UUID NOT NULL,
+        stage VARCHAR(50) NOT NULL,
+        model_name VARCHAR(100),
+        row_count BIGINT,
+        duration_ms INT,
+        status VARCHAR(20) NOT NULL,
+        started_at TIMESTAMP NOT NULL DEFAULT now(),
+        finished_at TIMESTAMP NOT NULL DEFAULT now(),
+        error TEXT
+    );
+    CREATE INDEX IF NOT EXISTS ix_pipeline_run_log_run_id ON core.pipeline_run_log (run_id);
+    CREATE INDEX IF NOT EXISTS ix_pipeline_run_log_started ON core.pipeline_run_log (started_at DESC);
+    """
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(ddl))
+    except Exception:
+        log.warning("Could not ensure pipeline_run_log table — logging will be best-effort.", exc_info=True)
+
+
+def _log_run(
+    engine,
+    run_id,
+    stage: str,
+    model_name: str | None,
+    row_count: int | None,
+    duration_ms: int | None,
+    status: str,
+    started_at: datetime,
+    finished_at: datetime,
+    error: str | None = None,
+) -> None:
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO core.pipeline_run_log
+                        (run_id, stage, model_name, row_count, duration_ms, status, started_at, finished_at, error)
+                    VALUES
+                        (:run_id, :stage, :model_name, :row_count, :duration_ms, :status, :started_at, :finished_at, :error)
+                    """
+                ),
+                {
+                    "run_id": str(run_id),
+                    "stage": stage,
+                    "model_name": model_name,
+                    "row_count": row_count,
+                    "duration_ms": duration_ms,
+                    "status": status,
+                    "started_at": started_at,
+                    "finished_at": finished_at,
+                    "error": (error[:1000] if error else None),
+                },
+            )
+    except Exception:
+        log.warning("Failed to write pipeline_run_log for %s — ignored.", model_name, exc_info=True)
+
+
+def _row_count(engine, table: str) -> int | None:
+    try:
+        with engine.connect() as conn:
+            return conn.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar()
+    except Exception:  # noqa: BLE001
+        return None
 
 
 @dataclass
@@ -127,28 +216,41 @@ def main() -> int:
     log.info(f"Running {len(sequence)} model(s) in sequence.")
 
     engine = get_postgres_engine()
+    run_id = uuid.uuid4()
+    _ensure_log_table(engine)
+    log.info(f"Pipeline run_id={run_id}")
 
     results: list[ModelResult] = []
     stop = False
 
     for name in sequence:
+        t0 = datetime.now(UTC)
+        start_perf = time.perf_counter()
         path = MODELS_DIR / name
 
         if stop and not args.continue_on_error:
             console.print(f"[yellow]  SKIP  {name}[/yellow]  (earlier model failed)")
             log.warning(f"{name}: skipped, earlier model failed.")
-            results.append(ModelResult(name, "SKIP", error="earlier model failed"))
+            result = ModelResult(name, "SKIP", error="earlier model failed")
+            results.append(result)
+            _log_run(engine, run_id, "models", name, None, None, "SKIP", t0, datetime.now(UTC), result.error)
             continue
 
         if not path.exists():
             console.print(f"[yellow]  SKIP  {name}[/yellow]  (file not found: {path})")
             log.warning(f"{name}: file not found at {path}, skipping.")
-            results.append(ModelResult(name, "SKIP", error="file not found"))
+            result = ModelResult(name, "SKIP", error="file not found")
+            results.append(result)
+            _log_run(engine, run_id, "models", name, None, None, "SKIP", t0, datetime.now(UTC), result.error)
             continue
 
         with console.status(f"[cyan]Running {name}..."):
             result = run_model(engine, path)
         results.append(result)
+
+        duration_ms = int((time.perf_counter() - start_perf) * 1000)
+        t1 = datetime.now(UTC)
+        row_count = _row_count(engine, MODEL_TO_TABLE.get(name)) if result.status == "PASS" else None
 
         if result.status == "PASS":
             console.print(f"[green]  PASS  {name}[/green]  ({result.duration:.2f}s)")
@@ -160,6 +262,8 @@ def main() -> int:
             console.print(f"[red]{result.error}[/red]")
             log.error(f"{name}: failed after {result.duration:.2f}s — {result.error}")
             stop = True
+
+        _log_run(engine, run_id, "models", name, row_count, duration_ms, result.status, t0, t1, result.error)
 
     console.print()
     print_summary(console, results)

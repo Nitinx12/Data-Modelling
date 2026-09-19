@@ -10,10 +10,13 @@ import argparse
 import logging
 import re
 import sys
+import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 from rich.console import Console
 from rich.table import Table
+from sqlalchemy import text
 
 console = Console()
 
@@ -43,6 +46,43 @@ from utils.connection import get_postgres_engine
 from utils.logger import get_logger
 
 log = get_logger("data_quality", subdir="tests", console_level=logging.INFO)
+
+
+def _log_quality(engine, run_id, model_name, checks_failed, rows_failed, duration_ms, status, started_at, finished_at):
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS core.pipeline_run_log (
+                        log_id BIGSERIAL PRIMARY KEY,
+                        run_id UUID NOT NULL, stage VARCHAR(50) NOT NULL, model_name VARCHAR(100),
+                        row_count BIGINT, duration_ms INT, status VARCHAR(20) NOT NULL,
+                        started_at TIMESTAMP NOT NULL, finished_at TIMESTAMP NOT NULL, error TEXT
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO core.pipeline_run_log
+                        (run_id, stage, model_name, row_count, duration_ms, status, started_at, finished_at)
+                    VALUES (:run_id, 'quality', :model_name, :row_count, :duration_ms, :status, :started_at, :finished_at)
+                    """
+                ),
+                {
+                    "run_id": str(run_id),
+                    "model_name": model_name,
+                    "row_count": rows_failed,
+                    "duration_ms": duration_ms,
+                    "status": status,
+                    "started_at": started_at,
+                    "finished_at": finished_at,
+                },
+            )
+    except Exception:
+        log.warning("Failed to log quality for %s — ignored.", model_name, exc_info=True)
 
 
 def get_loop_files(project_root: Path) -> list[Path]:
@@ -184,8 +224,36 @@ def main() -> int:
     console.print(f"[bold]Running {len(loop_files)} data quality loop(s)[/bold]")
     log.info("Running %s data quality loop(s).", len(loop_files))
 
+    t0 = datetime.now(UTC)
+    import time as _time
+
+    _t = _time.perf_counter()
     results = run_data_quality_loops(loop_files)
+    _dur = int((_time.perf_counter() - _t) * 1000)
     print_summary_table(results)
+
+    # Observability — log each loop file as a separate row + an aggregate
+    try:
+        from utils.connection import get_postgres_engine
+
+        eng = get_postgres_engine()
+        rid = uuid.uuid4()
+        t1 = datetime.now(UTC)
+        for r in results:
+            _log_quality(
+                eng,
+                rid,
+                r["file"],
+                r["checks_failed"],
+                r["rows_failed"],
+                None,
+                "PASS" if r["checks_failed"] == 0 else "FAIL",
+                t0,
+                t1,
+            )
+        _log_quality(eng, rid, "quality_all", sum(rr["checks_failed"] for rr in results), sum(rr["rows_failed"] for rr in results), _dur, "PASS" if all(rr["checks_failed"] == 0 for rr in results) else "FAIL", t0, t1)
+    except Exception:
+        log.warning("Quality observability logging failed — ignored.", exc_info=True)
 
     total_failed_checks = sum(result["checks_failed"] for result in results)
     if args.strict and total_failed_checks > 0:

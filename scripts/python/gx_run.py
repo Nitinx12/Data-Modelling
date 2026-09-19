@@ -36,14 +36,17 @@ import argparse
 import logging
 import re
 import sys
+import time
+import uuid
 from collections.abc import Callable
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
 import yaml
 from rich.console import Console
 from rich.table import Table
+from sqlalchemy import text
 
 console = Console()
 
@@ -425,6 +428,8 @@ def main() -> int:
     console.print(f"[bold]Running {len(selected)} GX suite(s)[/bold]")
     log.info("Running %s GX suite(s).", len(selected))
 
+    t0 = datetime.now(UTC)
+    _t = time.perf_counter()
     try:
         results, skipped = run_gx_suites(selected)
     except Exception:
@@ -434,7 +439,49 @@ def main() -> int:
         )
         return 1
 
+    _dur = int((time.perf_counter() - _t) * 1000)
+    t1 = datetime.now(UTC)
     print_summary_table(results, skipped)
+
+    # Observability — log GX run
+    try:
+        from utils.connection import get_postgres_engine
+
+        eng = get_postgres_engine()
+        rid = uuid.uuid4()
+        total_failed_tmp = sum(r["failed"] for r in results)
+        # Ensure table exists (best-effort)
+        with eng.begin() as conn:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS core.pipeline_run_log (
+                        log_id BIGSERIAL PRIMARY KEY, run_id UUID NOT NULL, stage VARCHAR(50) NOT NULL,
+                        model_name VARCHAR(100), row_count BIGINT, duration_ms INT, status VARCHAR(20) NOT NULL,
+                        started_at TIMESTAMP NOT NULL, finished_at TIMESTAMP NOT NULL, error TEXT
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO core.pipeline_run_log
+                        (run_id, stage, model_name, row_count, duration_ms, status, started_at, finished_at)
+                    VALUES (:run_id, 'gx', 'gx_all', :row_count, :duration_ms, :status, :started_at, :finished_at)
+                    """
+                ),
+                {
+                    "run_id": str(rid),
+                    "row_count": total_failed_tmp,
+                    "duration_ms": _dur,
+                    "status": "PASS" if total_failed_tmp == 0 else "FAIL",
+                    "started_at": t0,
+                    "finished_at": t1,
+                },
+            )
+    except Exception:
+        log.warning("GX observability logging failed — ignored.", exc_info=True)
 
     total_failed = sum(result["failed"] for result in results)
     if args.strict and total_failed > 0:
