@@ -111,7 +111,7 @@ FROM (
     SELECT
         *,
         ROW_NUMBER() OVER(
-            PARTITION BY "LineID" ORDER BY "update_at" DESC NULLS LAST
+            PARTITION BY "OrderID", "LineID" ORDER BY "update_at" DESC NULLS LAST
         ) AS rnk
     FROM staging.order_line_items
 ) AS line_items_dedup

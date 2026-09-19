@@ -32,15 +32,15 @@ db.cities.insertMany([
 ]);
 
 db.addres.insertMany([
-  { _id: oid(), CustomerID: "CUST001", Street: "101 MG Road",      City: "Mumbai",    Region: "West",  update_at: now() },
-  { _id: oid(), CustomerID: "CUST002", Street: "22 FC Road",       City: "Pune",      Region: "West",  update_at: now() },
-  { _id: oid(), CustomerID: "CUST003", Street: "5 Residency Road", City: "Bangalore", Region: "South", update_at: now() }
+  { _id: oid(), AddressID: "ADDR001", Street: "101 MG Road",      CityName: "Mumbai",    update_at: now() },
+  { _id: oid(), AddressID: "ADDR002", Street: "22 FC Road",       CityName: "Pune",      update_at: now() },
+  { _id: oid(), AddressID: "ADDR003", Street: "5 Residency Road", CityName: "Bangalore", update_at: now() }
 ]);
 
 db.cust_master.insertMany([
-  { _id: oid(), CustomerID: "CUST001", CustomerName: "Acme Corp",    Segment: "Enterprise", AccountManager: "R. Shah",  PaymentTerms: "Net 30", update_at: now() },
-  { _id: oid(), CustomerID: "CUST002", CustomerName: "Globex Ltd",   Segment: "SMB",        AccountManager: "P. Rao",   PaymentTerms: "Net 15", update_at: now() },
-  { _id: oid(), CustomerID: "CUST003", CustomerName: "Initech",      Segment: "Enterprise", AccountManager: "S. Kumar", PaymentTerms: "Net 45", update_at: now() }
+  { _id: oid(), CustomerID: "CUST001", CustomerName: "Acme Corp",    Segment: "Enterprise", AccountManager: "R. Shah",  PaymentTerms: "Net 30", AddressID: "ADDR001", update_at: now() },
+  { _id: oid(), CustomerID: "CUST002", CustomerName: "Globex Ltd",   Segment: "SMB",        AccountManager: "P. Rao",   PaymentTerms: "Net 15", AddressID: "ADDR002", update_at: now() },
+  { _id: oid(), CustomerID: "CUST003", CustomerName: "Initech",      Segment: "Enterprise", AccountManager: "S. Kumar", PaymentTerms: "Net 45", AddressID: "ADDR003", update_at: now() }
 ]);
 
 db.customer_contach.insertMany([
@@ -50,9 +50,9 @@ db.customer_contach.insertMany([
 ]);
 
 db.user_details.insertMany([
-  { _id: oid(), CustomerID: "CUST001", Phone: "9000000001", CreditLimit: 500000, update_at: now() },
-  { _id: oid(), CustomerID: "CUST002", Phone: "9000000002", CreditLimit: 150000, update_at: now() },
-  { _id: oid(), CustomerID: "CUST003", Phone: "9000000003", CreditLimit: 750000, update_at: now() }
+  { _id: oid(), UserID: "CUST001", Phone: "9000000001", CreditLimit: 500000, update_at: now() },
+  { _id: oid(), UserID: "CUST002", Phone: "9000000002", CreditLimit: 150000, update_at: now() },
+  { _id: oid(), UserID: "CUST003", Phone: "9000000003", CreditLimit: 750000, update_at: now() }
 ]);
 
 // --- products / subcategory (dim_products) ---
@@ -86,20 +86,20 @@ db.campaing_logs.insertMany([
 ]);
 
 db.campaing_sku.insertMany([
-  { _id: oid(), CampaignName: "Diwali 2025",   PromotedSKU: "UltraBook X1",  update_at: now() },
-  { _id: oid(), CampaignName: "Diwali 2025",   PromotedSKU: "4K Monitor 27\"", update_at: now() },
-  { _id: oid(), CampaignName: "New Year 2026", PromotedSKU: "Ergo Chair Pro", update_at: now() }
+  { _id: oid(), CampaignName: "Diwali 2025",   PromotedSKUs: "PROD-A001",  PromotedSKU: "UltraBook X1",  update_at: now() },
+  { _id: oid(), CampaignName: "Diwali 2025",   PromotedSKUs: "PROD-A002",  PromotedSKU: "4K Monitor 27\"", update_at: now() },
+  { _id: oid(), CampaignName: "New Year 2026", PromotedSKUs: "PROD-B001",  PromotedSKU: "Ergo Chair Pro", update_at: now() }
 ]);
 
 // --- orders + line items (dim_orders_flag, fact_order_process, fact_orders) ---
 db.orders_2025.insertMany([
-  { _id: oid(), OrderID: "ORD-2025-0001", CustomerName: "Acme Corp",  CustomerCity: "Mumbai", RegionName: "West",  ShipToCity: "Mumbai", BillToCity: "Mumbai", OrderDate: "2025-06-10", OrderChannel: 1, Status: "Shipped",   Priority: "High",   OrderTotal: 117000, update_at: now() },
-  { _id: oid(), OrderID: "ORD-2025-0002", CustomerName: "Globex Ltd", CustomerCity: "Pune",   RegionName: "West",  ShipToCity: "Pune",   BillToCity: "Pune",   OrderDate: "2025-07-02", OrderChannel: 2, Status: "Delivered", Priority: "Medium", OrderTotal: 50500,  update_at: now() },
-  { _id: oid(), OrderID: "ORD-2025-0003", CustomerName: "Initech",    CustomerCity: "Bangalore", RegionName: "South", ShipToCity: "Delhi",  BillToCity: "Bangalore", OrderDate: "2025-08-15", OrderChannel: 1, Status: "Ordered", Priority: "Low",  OrderTotal: 12000,  update_at: now() }
+  { _id: oid(), OrderID: "ORD-2025-0001", CustomerName: "Acme Corp",  CustomerCity: "Mumbai", RegionName: "West",  ShipToCity: "Mumbai", BillToCity: "Mumbai", OrderDate: "2025-06-10", OrderChannel: 1, Status: "Shipped",   Priority: "High",   OrderTotal: 117000, OrderNotes: null, GiftMessage: null, SourceFile: "seed", source_sheet: "orders_2025", update_at: now() },
+  { _id: oid(), OrderID: "ORD-2025-0002", CustomerName: "Globex Ltd", CustomerCity: "Pune",   RegionName: "West",  ShipToCity: "Pune",   BillToCity: "Pune",   OrderDate: "2025-07-02", OrderChannel: 2, Status: "Delivered", Priority: "Medium", OrderTotal: 50500,  OrderNotes: null, GiftMessage: null, SourceFile: "seed", source_sheet: "orders_2025", update_at: now() },
+  { _id: oid(), OrderID: "ORD-2025-0003", CustomerName: "Initech",    CustomerCity: "Bangalore", RegionName: "South", ShipToCity: "Delhi",  BillToCity: "Bangalore", OrderDate: "2025-08-15", OrderChannel: 1, Status: "Ordered", Priority: "Low",  OrderTotal: 12000,  OrderNotes: null, GiftMessage: null, SourceFile: "seed", source_sheet: "orders_2025", update_at: now() }
 ]);
 
 db.orders_2026.insertMany([
-  { _id: oid(), OrderID: "ORD-2026-0001", CustomerName: "Acme Corp", CustomerCity: "Mumbai", RegionName: "West", ShipToCity: "Mumbai", BillToCity: "Delhi", OrderDate: "2026-02-10", OrderChannel: 3, Status: "Ordered", Priority: "High", OrderTotal: 85000, update_at: now() }
+  { _id: oid(), OrderID: "ORD-2026-0001", CustomerName: "Acme Corp", CustomerCity: "Mumbai", RegionName: "West", ShipToCity: "Mumbai", BillToCity: "Delhi", OrderDate: "2026-02-10", OrderChannel: 3, Status: "Ordered", Priority: "High", OrderTotal: 85000, OrderNotes: null, GiftMessage: null, SourceFile: null, source_sheet: "orders_2026", update_at: now() }
 ]);
 
 db.order_line_items.insertMany([

@@ -15,7 +15,7 @@ with orders as (
 ),
 orders_final as (select * from orders where rnk = 1 and not is_future_dated),
 lines as (
-    select *, row_number() over (partition by "LineID" order by "update_at" desc nulls last) as rnk
+    select *, row_number() over (partition by "OrderID", "LineID" order by "update_at" desc nulls last) as rnk
     from {{ ref('stg_order_line_items') }}
 ),
 lines_final as (select * from lines where rnk = 1)

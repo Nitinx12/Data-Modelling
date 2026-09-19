@@ -1,239 +1,322 @@
 # =====================================================================
-# Makefile — warehouse pipeline orchestration
+# Makefile — warehouse pipeline orchestration (production grade)
 # =====================================================================
-# Thin wrapper around this project's scripts so the full pipeline, or
-# any single stage of it, can be run with one command:
+# One-command entry points for local dev, CI, and Docker:
 #
-#   make pipeline              staging load -> models -> data quality -> GX
-#   make staging               Mongo -> Postgres staging load (pg_staging.py)
-#   make models                run warehouse model SQL in sequence (run_models.py)
-#   make quality               run read-only data quality loops (run_data_quality_loops.py)
-#   make gx                    run Great Expectations suites (gx_run.py, read-only)
-#   make analytics             apply analytics-schema SQL (functions/marts) via psql
-#   make test                  run pytest unit tests (tests/unit/)
-#   make test-cov              run pytest with coverage report
-#   make gx                    run a Great Expectations suite (gx/expectations/)
-#   make lint                  run ruff checks over the codebase
-#   make health-check          verify CLIs, Python, Postgres, MongoDB (scripts/health_check.sh)
-#   make security-check        surface secrets, key files, .env mistakes (scripts/security_check.sh)
-#   make setup-dev             uv sync + .env scaffold + health check (scripts/setup_dev.sh)
-#   make logs-summary          read-only report of logs/ (monitor_logs.sh)
+#   make pipeline              staging → models → quality → GX (via deps, recommended)
+#   make pipeline-main         same via scripts/python/main.py (explicit orchestrator)
+#   make compose-up            one-command Docker demo (postgres:16 + mongo:7 + pipeline)
+#   make dbt-build             dbt mirror: staging views → core tables + tests
+#   make dashboard             streamlit on core (requires POSTGRES_* / secrets.toml)
+#   make dagster-dev           Dagster UI on :3000 (asset DAG, dims before facts)
 #
-# Run `make help` (or just `make`) to list every target with a description.
+# Run `make help` (or just `make`) to list every target.
 #
-# Requires: uv (https://github.com/astral-sh/uv), bash, psql (analytics +
-#   health_check), mongosh (health_check).
-# On Windows, run this from inside WSL — the Makefile shells out to bash
-# and *.sh scripts need a real POSIX shell, not PowerShell/cmd.exe.
+# Requires: uv (https://github.com/astral-sh/uv), bash, psql (analytics/health),
+#   mongosh (health), docker (compose demo), dbt (dbt/*), streamlit (dashboard/)
+# On Windows, run from WSL — Makefile shells to bash, *.sh need POSIX shell.
 # =====================================================================
 
 .DEFAULT_GOAL := help
 SHELL := /usr/bin/env bash
+.SHELLFLAGS := -eu -o pipefail -c
+MAKEFLAGS += --warn-undefined-variables
+MAKEFLAGS += --no-builtin-rules
 
 # ---------------------------------------------------------------------
-# Config — override on the command line, e.g.:
-#   make staging-one COLLECTION=Address
-#   make logs-clean MAX_AGE_DAYS=14 MAX_SIZE_MB=10
-#   make analytics DATABASE_URL=postgresql://user:pass@host:5432/db
+# Config — override on CLI, e.g. make staging-one COLLECTION=Address
 # ---------------------------------------------------------------------
 UV              ?= uv
 PY              := $(UV) run
+PIP             := $(UV) pip
 SCRIPTS_DIR     := scripts
 MODELS_DIR      := models
 SQL_DIR         := sql
 ANALYTICS_DIR   := $(SQL_DIR)/analytics
 LOG_DIR         := logs
 LINT_PATHS      ?= .
+COMPOSE         ?= docker compose
+DBT_DIR         := dbt
+DASHBOARD_DIR   := dashboard
 
 COLLECTION      ?=
 MODELS          ?=
+SUITE           ?=
 MAX_AGE_DAYS    ?= 7
 MAX_SIZE_MB     ?= 5
 DATABASE_URL    ?=
+DBT_TARGET      ?= dev
 
-.PHONY: help install check-env \
+# Export for sub-processes (psql, mongosh, python)
+export PYTHONUTF8 ?= 1
+export UV
+
+# ---------------------------------------------------------------------
+# Phony — every target that is not a file
+# ---------------------------------------------------------------------
+.PHONY: help config install check-env \
         staging staging-one \
         models models-only models-continue \
-        quality dq \
-        analytics \
+        quality dq gx analytics \
         test test-cov \
-        lint lint-fix format-check \
+        lint lint-fix format format-check \
         logs-summary logs-clean-dry logs-clean logs-clean-force \
         health-check health-check-deep \
         security-check security-check-shellcheck \
         setup-dev \
         pipeline pipeline-continue pipeline-main pipeline-main-continue \
-        clean distclean config
+        pipeline-dagster pipeline-dbt \
+        compose-up compose-down compose-logs compose-ps compose-build compose-clean \
+        dbt-deps dbt-build dbt-test dbt-docs dbt-clean \
+        dashboard dashboard-install dagster-dev \
+        clean distclean
 
 # =====================================================================
-# help — self-documenting target list (default target)
+# help — self-documenting (default)
 # =====================================================================
-help: ## Show this help message
+help: ## Show this help
 	@echo "Warehouse pipeline — available targets:"
 	@echo ""
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+	@grep -E '^[a-zA-Z0-9._/-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 	    sort | \
-	    awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}'
+	    awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-24s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "Examples:"
+	@echo "  make pipeline                        # local: staging → models → quality → GX"
+	@echo "  make compose-up                      # docker: one-command demo (seeded DBs)"
+	@echo "  make dbt-build                       # dbt mirror with lineage"
+	@echo "  make dashboard                       # streamlit on core (needs DB creds)"
 
-config: ## Print resolved variables (useful before running with overrides)
+config: ## Print resolved variables
 	@echo "UV              = $(UV)"
+	@echo "PY              = $(PY)"
+	@echo "COMPOSE         = $(COMPOSE)"
 	@echo "SCRIPTS_DIR     = $(SCRIPTS_DIR)"
 	@echo "MODELS_DIR      = $(MODELS_DIR)"
+	@echo "SQL_DIR         = $(SQL_DIR)"
 	@echo "ANALYTICS_DIR   = $(ANALYTICS_DIR)"
-	@echo "LOG_DIR         = $(LOG_DIR)"
+	@echo "DBT_DIR         = $(DBT_DIR)"
+	@echo "DASHBOARD_DIR   = $(DASHBOARD_DIR)"
 	@echo "LINT_PATHS      = $(LINT_PATHS)"
 	@echo "MAX_AGE_DAYS    = $(MAX_AGE_DAYS)"
 	@echo "MAX_SIZE_MB     = $(MAX_SIZE_MB)"
 	@echo "DATABASE_URL    = $(if $(DATABASE_URL),(set),(not set))"
+	@echo "DBT_TARGET      = $(DBT_TARGET)"
+	@echo "PYTHONUTF8      = $(PYTHONUTF8)"
 
 # =====================================================================
 # Setup
 # =====================================================================
-install: ## Install/sync all project dependencies via uv
-	$(UV) sync
+install: ## Sync all deps via uv (frozen, dev group for pipeline+GX+dagster+dbt)
+	$(UV) sync --group dev --frozen
 
-check-env: ## Verify a .env file exists before running anything DB-related
-	@test -f .env || (echo "Missing .env at project root — copy .env.example and fill it in." && exit 1)
+install-all: ## Sync + install dashboard extra (if needed)
+	$(UV) sync --group dev --frozen
+	$(UV) pip install -r $(DASHBOARD_DIR)/requirements.txt || true
 
-# =====================================================================
-# Unit Tests
-# =====================================================================
-test: ## Run pytest unit tests
-	$(PY) -m pytest tests/python/unit
-
-test-cov: ## Run pytest with coverage report
-	$(PY) -m pytest --cov=utils tests/python/unit
+check-env: ## Verify .env exists before DB-related targets
+	@test -f .env || (echo "Missing .env — copy .env.example and fill it in." && exit 1)
 
 # =====================================================================
-# Code quality — ruff (lint only; this project has no test suite target,
-
-# see `quality`/`dq` for the SQL data quality loops instead)
+# Tests & quality (no DB)
 # =====================================================================
-lint: ## Run ruff checks over the codebase (no changes made)
+test: ## Pytest unit tests (mocked, no DB)
+	$(PY) -m pytest tests/python/unit -v
+
+test-cov: ## Pytest with coverage
+	$(PY) -m pytest --cov=utils --cov-report=term-missing --cov-report=html:htmlcov tests/python/unit
+
+lint: ## Ruff lint (no fix)
 	$(PY) ruff check $(LINT_PATHS)
 
-lint-fix: ## Run ruff checks and auto-fix what it safely can
+lint-fix: ## Ruff lint + auto-fix
 	$(PY) ruff check --fix $(LINT_PATHS)
 
-format-check: ## Check formatting with ruff without changing files
+format: ## Ruff format (write)
+	$(PY) ruff format $(LINT_PATHS)
+
+format-check: ## Ruff format --check (CI)
 	$(PY) ruff format --check $(LINT_PATHS)
 
 # =====================================================================
-# Staging load (Mongo -> Postgres), pg_staging.py
+# Staging (Mongo → Postgres)
 # =====================================================================
-staging: check-env ## Load every Mongo collection into staging
+staging: check-env ## Load every Mongo collection into staging (incremental, validated)
 	$(PY) $(SCRIPTS_DIR)/python/pg_staging.py
 
-staging-one: check-env ## Load a single collection — make staging-one COLLECTION=Address
+staging-one: check-env ## Load one collection — COLLECTION=Address
 	@test -n "$(COLLECTION)" || (echo 'Usage: make staging-one COLLECTION=<name>' && exit 1)
 	$(PY) $(SCRIPTS_DIR)/python/pg_staging.py --collection $(COLLECTION)
 
 # =====================================================================
-# Warehouse models (core schema dims/facts), run_models.py
+# Models (core dims/facts, SCD2 dim_customers)
 # =====================================================================
-models: check-env ## Run every model in MODEL_SEQUENCE, in dependency order
+models: check-env ## Run all models in MODEL_SEQUENCE (dims before facts)
 	$(PY) $(SCRIPTS_DIR)/python/run_models.py
 
-models-only: check-env ## Run specific models — make models-only MODELS="fact_orders.sql fact_less_fact.sql"
-	@test -n "$(MODELS)" || (echo 'Usage: make models-only MODELS="model1.sql model2.sql"' && exit 1)
+models-only: check-env ## Run specific models — MODELS="fact_orders.sql ..."
+	@test -n "$(MODELS)" || (echo 'Usage: make models-only MODELS="..."' && exit 1)
 	$(PY) $(SCRIPTS_DIR)/python/run_models.py --only $(MODELS)
 
-models-continue: check-env ## Run every model, continuing past failures instead of stopping
+models-continue: check-env ## Run all models, continue past failures
 	$(PY) $(SCRIPTS_DIR)/python/run_models.py --continue-on-error
 
 # =====================================================================
-# Data quality — run_data_quality_loops.py (reads tests/data_quality/*_lp_*.sql)
-# and gx_run.py (reads gx/expectations/*.yaml)
+# Data quality (read-only, --strict fails pipeline)
 # =====================================================================
-quality: check-env ## Run the read-only data quality SQL loops
+quality: check-env ## SQL loops (5) — read-only, catalog-driven
 	$(PY) $(SCRIPTS_DIR)/python/run_data_quality_loops.py
 
-dq: quality ## Alias for `quality`
+dq: quality ## Alias for quality
 
-gx: check-env ## Run all Great Expectations suites — or one via make gx SUITE=<name>
+quality-strict: check-env ## SQL loops with --strict (CI)
+	$(PY) $(SCRIPTS_DIR)/python/run_data_quality_loops.py --strict
+
+gx: check-env ## Great Expectations suites (all or SUITE=name)
 	$(PY) $(SCRIPTS_DIR)/python/gx_run.py $(if $(SUITE),--suite $(SUITE),)
 
+gx-strict: check-env ## GX with --strict (CI)
+	$(PY) $(SCRIPTS_DIR)/python/gx_run.py --strict $(if $(SUITE),--suite $(SUITE),)
+
 # =====================================================================
-# Analytics schema — dynamic functions / marts (applied via psql, not
-# part of MODEL_SEQUENCE). Put those .sql files under sql/analytics/.
+# Analytics (psql, via DATABASE_URL or .env)
 # =====================================================================
-analytics: check-env ## Apply/run every .sql file in sql/analytics/ and print any KPI results; builds DATABASE_URL from .env if not passed explicitly
+analytics: check-env ## Apply sql/analytics/*.sql via psql
 	@if [ -z "$(DATABASE_URL)" ]; then \
 		if [ -f .env ]; then set -a; . <(tr -d '\r' < .env); set +a; fi; \
 		if [ -n "$$POSTGRES_HOST" ] && [ -n "$$POSTGRES_DATABASE" ] && [ -n "$$POSTGRES_USERNAME" ]; then \
 			url="postgresql://$$POSTGRES_USERNAME:$$POSTGRES_PASSWORD@$$POSTGRES_HOST:$${POSTGRES_PORT:-5432}/$$POSTGRES_DATABASE"; \
-		else \
-			echo 'Set DATABASE_URL, e.g. make analytics DATABASE_URL=postgresql://user:pass@host:5432/db'; \
-			exit 1; \
-		fi; \
-	else \
-		url="$(DATABASE_URL)"; \
-	fi; \
-	if [ ! -d "$(ANALYTICS_DIR)" ]; then \
-		echo "No such directory: $(ANALYTICS_DIR)"; \
-		exit 1; \
-	fi; \
+		else echo 'Set DATABASE_URL or POSTGRES_* in .env' && exit 1; fi; \
+	else url="$(DATABASE_URL)"; fi; \
+	if [ ! -d "$(ANALYTICS_DIR)" ]; then echo "No such dir: $(ANALYTICS_DIR)" && exit 1; fi; \
 	for f in $(ANALYTICS_DIR)/*.sql; do \
-		echo ""; \
-		echo "==================== $$f ===================="; \
+		[ -e "$$f" ] || continue; \
+		echo ""; echo "==================== $$f ===================="; \
 		PAGER=cat psql "$$url" -v ON_ERROR_STOP=1 --pset border=2 --pset pager=off -f "$$f" || exit 1; \
 	done
 
 # =====================================================================
-# Log maintenance — monitor_logs.sh
+# Docker Compose — one-command demo + pipeline inside Docker
 # =====================================================================
-logs-summary: ## Read-only summary report of logs/
+compose-up: ## Docker: postgres:16 + mongo:7 + pipeline (seeded, healthchecked)
+	$(COMPOSE) up --build -d postgres mongo
+	@echo "Waiting for DBs healthy (postgres 5433, mongo 27018 on host)..."
+	@for i in 1 2 3 4 5 6 7 8 9 10 11 12; do \
+		$(COMPOSE) ps | grep -q "(healthy)" && break; sleep 3; done
+	$(COMPOSE) ps
+
+compose-build: ## Docker: build pipeline image (dbt+dagster+streamlit)
+	$(COMPOSE) build pipeline
+
+compose-logs: ## Docker: follow pipeline logs
+	$(COMPOSE) logs -f pipeline
+
+compose-ps: ## Docker: list services
+	$(COMPOSE) ps
+
+compose-down: ## Docker: stop (keep volumes)
+	$(COMPOSE) down
+
+compose-clean: ## Docker: stop and wipe volumes (fresh seed on next up)
+	$(COMPOSE) down -v
+
+compose-pipeline: ## Docker: run pipeline inside container (make pipeline)
+	$(COMPOSE) run --rm pipeline
+
+compose-sh: ## Docker: shell in pipeline container
+	$(COMPOSE) run --rm pipeline bash
+
+# =====================================================================
+# dbt — lineage/docs mirror (hand-built remains pipeline)
+# =====================================================================
+dbt-deps: ## dbt: install dbt_utils package
+	$(PY) dbt deps --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)
+
+dbt-build: ## dbt: build staging views → core tables (via ref)
+	$(PY) dbt build --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR) --target $(DBT_TARGET)
+
+dbt-test: ## dbt: test (not_null/unique/relationships, mirrors loops 1,3,5)
+	$(PY) dbt test --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR) --target $(DBT_TARGET)
+
+dbt-docs: ## dbt: generate docs + serve on :8080
+	$(PY) dbt docs generate --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)
+	$(PY) dbt docs serve --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)
+
+dbt-clean: ## dbt: clean target/dbt_packages
+	rm -rf $(DBT_DIR)/target $(DBT_DIR)/dbt_packages
+
+# =====================================================================
+# Dashboard & Dagster
+# =====================================================================
+dashboard-install: ## Install dashboard deps (streamlit)
+	$(PIP) install -r $(DASHBOARD_DIR)/requirements.txt
+
+dashboard: ## Run Streamlit dashboard on core (needs DB creds/secrets.toml)
+	$(PY) streamlit run $(DASHBOARD_DIR)/Home.py
+
+dagster-dev: ## Run Dagster UI on :3000 (asset DAG)
+	$(PY) dagster dev -m orchestration.definitions --host 0.0.0.0 --port 3000
+
+dagster-job: ## Run Dagster full_pipeline job headless
+	$(PY) dagster job execute -m orchestration.definitions --job full_pipeline
+
+# =====================================================================
+# Logs, health, security, setup
+# =====================================================================
+logs-summary: ## Read-only log summary
 	$(SCRIPTS_DIR)/bash/monitor_logs.sh summary
 
-logs-clean-dry: ## Preview what a log cleanup would delete (deletes nothing)
+logs-clean-dry: ## Preview log cleanup (dry-run)
 	MAX_AGE_DAYS=$(MAX_AGE_DAYS) MAX_SIZE_MB=$(MAX_SIZE_MB) $(SCRIPTS_DIR)/bash/monitor_logs.sh clean --dry-run
 
-logs-clean: ## Delete flagged logs (interactive confirmation)
+logs-clean: ## Delete flagged logs (interactive)
 	MAX_AGE_DAYS=$(MAX_AGE_DAYS) MAX_SIZE_MB=$(MAX_SIZE_MB) $(SCRIPTS_DIR)/bash/monitor_logs.sh clean
 
-logs-clean-force: ## Delete flagged logs without confirmation (CI/cron use)
+logs-clean-force: ## Delete flagged logs without confirmation (CI)
 	MAX_AGE_DAYS=$(MAX_AGE_DAYS) MAX_SIZE_MB=$(MAX_SIZE_MB) $(SCRIPTS_DIR)/bash/monitor_logs.sh clean -y
 
-# =====================================================================
-# Health & security checks (scripts/health_check.sh, security_check.sh)
-# =====================================================================
-health-check: ## Run scripts/health_check.sh — verify CLIs, Python, Postgres, MongoDB
+health-check: ## Verify CLIs, Python, Postgres, Mongo
 	$(SCRIPTS_DIR)/bash/health_check.sh
 
-health-check-deep: ## health_check.sh + warehouse table row counts
+health-check-deep: ## health_check + row counts (core/staging)
 	$(SCRIPTS_DIR)/bash/health_check.sh --deep
 
-security-check: ## Run scripts/security_check.sh — surface secrets, key files, .env mistakes
+security-check: ## Surface secrets, .env mistakes
 	$(SCRIPTS_DIR)/bash/security_check.sh
 
-security-check-shellcheck: ## security_check.sh + shellcheck on all scripts/*.sh
+security-check-shellcheck: ## security_check + shellcheck
 	$(SCRIPTS_DIR)/bash/security_check.sh --shellcheck
 
-setup-dev: ## Run scripts/setup_dev.sh — uv sync, .env scaffold, health check
+setup-dev: ## uv sync + .env scaffold + health check
 	$(SCRIPTS_DIR)/bash/setup_dev.sh
 
 # =====================================================================
-# Full pipeline
+# Full pipeline (local)
 # =====================================================================
-pipeline: staging models quality gx ## Run staging load -> models -> data quality -> GX, in order
+pipeline: staging models quality gx ## Local: staging → models → quality → GX (deps, recommended)
 	@echo "Pipeline complete."
 
-pipeline-continue: staging models-continue quality gx ## Same as `pipeline`, but models keep running past failures
+pipeline-continue: staging models-continue quality gx ## Local pipeline, continue past model failures
 	@echo "Pipeline complete (continue-on-error)."
 
-pipeline-main: ## Run the full pipeline via main.py (stops on first failure)
+pipeline-main: ## Via main.py (explicit orchestrator, stops on first failure)
 	$(PY) $(SCRIPTS_DIR)/python/main.py
 
-pipeline-main-continue: ## Run main.py with --continue-on-error
+pipeline-main-continue: ## Via main.py --continue-on-error
 	$(PY) $(SCRIPTS_DIR)/python/main.py --continue-on-error
+
+pipeline-dagster: ## Via Dagster headless job (asset DAG)
+	$(PY) dagster job execute -m orchestration.definitions --job full_pipeline
+
+pipeline-dbt: dbt-build dbt-test ## Via dbt (build + test)
 
 # =====================================================================
 # Housekeeping
 # =====================================================================
-clean: ## Remove Python cache artifacts (safe — no data or log deletion)
-	find . -path ./.venv -prune -o -type d -name "__pycache__" -print -exec rm -rf {} +
-	find . -path ./.venv -prune -o -type d -name ".pytest_cache" -print -exec rm -rf {} +
-	find . -path ./.venv -prune -o -type f -name "*.pyc" -exec rm -f {} +
+clean: ## Remove Python cache (safe)
+	find . -path ./.venv -prune -o -type d -name "__pycache__" -print -exec rm -rf {} + 2>/dev/null || true
+	find . -path ./.venv -prune -o -type d -name ".pytest_cache" -print -exec rm -rf {} + 2>/dev/null || true
+	find . -path ./.venv -prune -o -type f -name "*.pyc" -exec rm -f {} + 2>/dev/null || true
 
-distclean: clean logs-clean-force ## clean + force-delete flagged logs (destructive)
+distclean: clean logs-clean-force dbt-clean compose-clean ## clean + logs + dbt + docker volumes
 	@echo "Deep clean complete."
