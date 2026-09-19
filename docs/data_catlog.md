@@ -1,6 +1,6 @@
 # Data Catalog — Core Warehouse (`core` schema)
 
-Source layer: `staging` &nbsp;|&nbsp; Target layer: `core` &nbsp;|&nbsp; Pattern: SCD Type 1 dimensions + a fact constellation (multiple fact tables sharing conformed dimensions)
+Source layer: `staging` &nbsp;|&nbsp; Target layer: `core` &nbsp;|&nbsp; Pattern: SCD2 `dim_customers` + SCD1 other dims, fact constellation (multiple fact tables sharing conformed dimensions)
 
 ---
 
@@ -9,7 +9,7 @@ Source layer: `staging` &nbsp;|&nbsp; Target layer: `core` &nbsp;|&nbsp; Pattern
 | # | Table | Type | Grain | Depends on |
 |---|-------|------|-------|------------|
 | 1 | `core.dim_campaign` | Dimension (SCD1) | 1 row per campaign | — |
-| 2 | `core.dim_customers` | Dimension (SCD1) | 1 row per customer | — |
+| 2 | `core.dim_customers` | Dimension (SCD2) | 1 current row per customer + history rows | — |
 | 3 | `core.dim_geo` | Dimension (SCD1) | 1 row per city | — |
 | 4 | `core.dim_orders_flag` | Junk dimension (insert only) | 1 row per distinct (channel, status, priority) | — |
 | 5 | `core.dim_products` | Dimension (SCD1) | 1 row per product | — |
@@ -53,14 +53,14 @@ dim_products ───┘
 ---
 
 ### 2.2 `core.dim_customers`
-- **Purpose:** One row per customer, denormalizing contact, credit, and address/geo attributes.
+- **Purpose:** Customer dimension — now **SCD Type 2**, one **current** row per customer plus closed history rows for prior address/region values. Denormalizes contact, credit, and address/geo attributes.
 - **Source:** `staging.cust_master` (base) LEFT JOIN `staging.customer_contach` *(typo)* (primary contact only), `staging.user_details` (phone/credit limit), `staging.addres` *(typo)* (street), `staging.cities` (city/region).
-- **Load pattern:** SCD Type 1 upsert on `customer_id`. All records are kept, and rows with missing timestamps are handled via `NULLS LAST` in the dedup ranking.
+- **Load pattern:** SCD Type 2 — on business-key match with differing attributes, close the current row (`valid_to = now()`, `is_current = false`) and insert a new current row (`valid_from = now()`). Staged rows are deduped by `customer_id` ordered by `update_at DESC NULLS LAST`; `tmp_final_customers` is reused for the close + insert steps. Idempotent.
 
 | Column | Type | Notes |
 |---|---|---|
-| customer_key | BIGINT (PK, identity) | Surrogate key |
-| customer_id | VARCHAR(50) | **Business key**, UNIQUE |
+| customer_key | BIGINT (PK, identity) | Surrogate key (new per version) |
+| customer_id | VARCHAR(50) | **Business key** — part of `UNIQUE (customer_id, valid_from)`; `UNIQUE (customer_id) WHERE is_current` enforces one open row |
 | customer_name | VARCHAR(150) | |
 | segment | VARCHAR(50) | |
 | account_manager | VARCHAR(150) | |
@@ -71,6 +71,9 @@ dim_products ───┘
 | street | VARCHAR(200) | |
 | city_name / region_name | VARCHAR(100) | Denormalized copy of geo, independent of `dim_geo` |
 | source_updated_at | TIMESTAMP | Taken from the **address** record's `update_at`, not the customer master |
+| valid_from | TIMESTAMP | SCD2 open timestamp (`now()` at insertion) |
+| valid_to | TIMESTAMP | `NULL` when `is_current = true`, else close timestamp |
+| is_current | BOOLEAN | `true` for the open version per `customer_id` |
 | dw_created_at / dw_updated_at | TIMESTAMP | Audit columns |
 
 ---
@@ -216,7 +219,7 @@ dim_products ───┘
 - **Grain:** one row per order line.
 - **Source:** union of `staging.orders_2025` + `staging.orders_2026` (order header) deduped by `OrderID`, joined to deduped `staging.order_line_items` by `OrderID`.
 - **Load pattern:** SCD Type 1 upsert on (`order_id`, `line_id`).
-- **Dimensions joined:** `dim_customers` (by name), `dim_products` (by name), `dim_orders_flag` (by channel/status/priority), `dim_geo` joined **twice** — once for ship-to city, once for bill-to city (role-playing dimension).
+- **Dimensions joined:** `dim_customers` (**SCD2 as-of** — `LATERAL` picks the version where `valid_from <= order_date < valid_to`, fallback to `is_current`), `dim_products` (by name, `MIN(customer_key)` to handle `Kitchen M006` collisions), `dim_orders_flag` (by channel/status/priority), `dim_geo` joined **twice** — once for ship-to city, once for bill-to city (role-playing dimension).
 
 | Column | Type | Notes |
 |---|---|---|
@@ -227,7 +230,7 @@ dim_products ───┘
 | unit_price / unit_cost | NUMERIC(14,2) | |
 | discount_pct | NUMERIC(6,4) | |
 | line_total | NUMERIC(14,2) | |
-| customer_key | BIGINT (FK → dim_customers) | Joined by name, not `customer_id` |
+| customer_key | BIGINT (FK → dim_customers) | SCD2 as-of by `customer_name` + `order_date`; joined by name, not `customer_id` |
 | product_key | BIGINT (FK → dim_products) | Joined by name |
 | flag_key | BIGINT (FK → dim_orders_flag) | |
 | ship_geo_key | BIGINT (FK → dim_geo) | Role-playing: ship-to |

@@ -9,8 +9,8 @@ decision before anything changes.
 | # | Decision |
 |---|---|
 | D1 | Kimball dimensional model in `core`: five conformed dimensions, five facts, fact constellation rather than one star. |
-| D2 | All dimensions are SCD Type 1 (overwrite in place). No history is retained anywhere; add SCD2 only if a requirement appears. |
-| D3 | Every fact stores surrogate keys. Dimensions are resolved at load time via name joins because the staging sources carry names, not IDs. |
+| D2 | Four dimensions are SCD Type 1 (overwrite in place); `dim_customers` is SCD Type 2 (history retained via `valid_from`/`valid_to`/`is_current`, as-of join in `fact_orders`). Added 2026-09-19 — address/region changes matter for historical order analysis, other dims keep SCD1 for simplicity. |
+| D3 | Every fact stores surrogate keys. Dimensions are resolved at load time via name joins because the staging sources carry names, not IDs. `fact_orders` resolves `dim_customers` as-of `order_date` (LATERAL, `valid_from <= order_date < valid_to`, fallback to current) to honor SCD2. |
 | D4 | `fact_order_process` is an accumulating snapshot: one row per order, mutated in place as milestones arrive. Milestones are COALESCE-guarded so a source NULL cannot erase a loaded milestone. |
 | D5 | `dim_orders_flag` is a junk dimension, insert only (`ON CONFLICT DO NOTHING`) — the attribute combination is the identity. |
 | D6 | `fact_less_fact` carries no measures on purpose — it records only that a campaign promoted a SKU. |

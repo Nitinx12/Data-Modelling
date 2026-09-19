@@ -169,15 +169,25 @@ SELECT DISTINCT ON (O."OrderID", OI."LineID")
 FROM tmp_orders_final AS O
 LEFT JOIN tmp_line_items_final AS OI
     ON O."OrderID" = OI."OrderID"
-LEFT JOIN (
-        SELECT
-            customer_name
-            , MIN(customer_key) AS customer_key
-        FROM core.dim_customers
-        WHERE customer_name IS NOT NULL
-        GROUP BY customer_name
-    ) AS C
-    ON C.customer_name = O."CustomerName"
+-- SCD2 as-of join: pick the dim_customers version valid at OrderDate.
+-- Falls back to current row when OrderDate is null or no as-of range matches.
+LEFT JOIN LATERAL (
+    SELECT d.customer_key
+    FROM core.dim_customers AS d
+    WHERE d.customer_name = O."CustomerName"
+      AND d.customer_name IS NOT NULL
+    ORDER BY
+        CASE
+            WHEN NULLIF(O."OrderDate", '')::DATE IS NOT NULL
+                 AND d.valid_from::DATE <= NULLIF(O."OrderDate", '')::DATE
+                 AND (d.valid_to IS NULL OR d.valid_to::DATE > NULLIF(O."OrderDate", '')::DATE)
+            THEN 0
+            WHEN d.is_current THEN 1
+            ELSE 2
+        END
+        , d.valid_from DESC
+    LIMIT 1
+) AS C ON true
 LEFT JOIN (
         SELECT
             product_name
