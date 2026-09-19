@@ -10,27 +10,20 @@
 </p>
 
 <p align="center">
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python%203.13-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.13"></a>
-  <a href="https://www.postgresql.org/"><img src="https://img.shields.io/badge/PostgreSQL%2016-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL"></a>
-  <a href="https://www.mongodb.com/"><img src="https://img.shields.io/badge/MongoDB%207-47A248?style=for-the-badge&logo=mongodb&logoColor=white" alt="MongoDB"></a>
-  <a href="https://dagster.io/"><img src="https://img.shields.io/badge/Dagster-4F43DD?style=for-the-badge&logo=dagster&logoColor=white" alt="Dagster"></a>
-  <a href="https://www.getdbt.com/"><img src="https://img.shields.io/badge/dbt-FF694B?style=for-the-badge&logo=dbt&logoColor=white" alt="dbt"></a>
-  <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.13-3776AB?style=flat&logo=python&logoColor=white" alt="Python"></a>
+  <a href="https://www.postgresql.org/"><img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat&logo=postgresql&logoColor=white" alt="PostgreSQL"></a>
+  <a href="https://www.mongodb.com/"><img src="https://img.shields.io/badge/MongoDB-7-47A248?style=flat&logo=mongodb&logoColor=white" alt="MongoDB"></a>
+  <a href="https://dagster.io/"><img src="https://img.shields.io/badge/Dagster-1.13-4F43DD?style=flat&logo=dagster&logoColor=white" alt="Dagster"></a>
+  <a href="https://www.getdbt.com/"><img src="https://img.shields.io/badge/dbt-1.12-FF694B?style=flat&logo=dbt&logoColor=white" alt="dbt"></a>
+  <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/Docker-29-2496ED?style=flat&logo=docker&logoColor=white" alt="Docker"></a>
+  <a href="https://streamlit.io/"><img src="https://img.shields.io/badge/Streamlit-1.64-FF4B4B?style=flat&logo=streamlit&logoColor=white" alt="Streamlit"></a>
+  <a href="https://github.com/features/actions"><img src="https://img.shields.io/badge/CI-passing-2088FF?style=flat&logo=githubactions&logoColor=white" alt="CI"></a>
+  <a href="https://github.com/Nitinx12/Data-Modelling/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=flat" alt="License"></a>
 </p>
 
 <p align="center">
-  <a href="https://streamlit.io/"><img src="https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Streamlit"></a>
-  <a href="https://plotly.com/"><img src="https://img.shields.io/badge/Plotly-3F4F75?style=for-the-badge&logo=plotly&logoColor=white" alt="Plotly"></a>
-  <a href="https://docs.astral.sh/uv/"><img src="https://img.shields.io/badge/uv-DE5FE9?style=for-the-badge&logo=uv&logoColor=white" alt="uv"></a>
-  <a href="https://docs.astral.sh/ruff/"><img src="https://img.shields.io/badge/Ruff-261230?style=for-the-badge&logo=ruff&logoColor=FCC24B" alt="Ruff"></a>
-  <a href="https://github.com/features/actions"><img src="https://img.shields.io/badge/CI-2088FF?style=for-the-badge&logo=githubactions&logoColor=white" alt="CI"></a>
-  <a href="https://github.com/Nitinx12/Data-Modelling/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="License"></a>
-</p>
-
-<p align="center">
-  <a href="https://your-app-name.streamlit.app"><img src="https://img.shields.io/badge/Live%20Dashboard-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Live Dashboard"></a>
-  <a href="https://github.com/Nitinx12/Data-Modelling"><img src="https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub"></a>
-  <a href="https://github.com/Nitinx12/Data-Modelling/actions"><img src="https://img.shields.io/badge/CI-Passing-2088FF?style=for-the-badge&logo=githubactions&logoColor=white" alt="CI"></a>
+  <a href="https://your-app-name.streamlit.app"><img src="https://img.shields.io/badge/Live_Dashboard-→-FF4B4B?style=flat&logo=streamlit&logoColor=white" alt="Live Dashboard"></a>
+  <a href="https://github.com/Nitinx12/Data-Modelling"><img src="https://img.shields.io/badge/GitHub-Nitinx12-181717?style=flat&logo=github&logoColor=white" alt="GitHub"></a>
 </p>
 
 ---
