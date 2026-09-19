@@ -203,5 +203,7 @@ Deploy: push `dashboard/` to GitHub → [share.streamlit.io](https://share.strea
 | [`OPERATIONS.md`](docs/OPERATIONS.md) | Runbook — running the pipeline, daily checks, logs, what to do when a run fails, cron. |
 | [`TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) | Symptom → cause → fix for setup, pipeline, and CI problems. |
 | [`DECISIONS.md`](docs/DECISIONS.md) | Decision log — settled design decisions and open items awaiting a data owner. |
+| [`ADR-001`](docs/ADR-001-name-joins-vs-stable-ids.md) | ADR — why name-joins stay (with MIN+DISTINCT ON & SCD2 as-of guards) until source emits IDs. |
+| [`HOSTING.md`](docs/HOSTING.md) | Live hosting — Neon/Supabase + Streamlit Cloud + nightly `refresh.yml` (core → Neon). |
 | [`GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) | Git workflow guide — branching, Conventional Commits, production repo files, hooks, releases. |
 

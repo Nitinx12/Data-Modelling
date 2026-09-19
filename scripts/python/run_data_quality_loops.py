@@ -48,7 +48,17 @@ from utils.logger import get_logger
 log = get_logger("data_quality", subdir="tests", console_level=logging.INFO)
 
 
-def _log_quality(engine, run_id, model_name, checks_failed, rows_failed, duration_ms, status, started_at, finished_at):
+def _log_quality(
+    engine,
+    run_id,
+    model_name,
+    checks_failed,
+    rows_failed,
+    duration_ms,
+    status,
+    started_at,
+    finished_at,
+):
     try:
         with engine.begin() as conn:
             conn.execute(
@@ -82,7 +92,9 @@ def _log_quality(engine, run_id, model_name, checks_failed, rows_failed, duratio
                 },
             )
     except Exception:
-        log.warning("Failed to log quality for %s — ignored.", model_name, exc_info=True)
+        log.warning(
+            "Failed to log quality for %s — ignored.", model_name, exc_info=True
+        )
 
 
 def get_loop_files(project_root: Path) -> list[Path]:
@@ -251,7 +263,17 @@ def main() -> int:
                 t0,
                 t1,
             )
-        _log_quality(eng, rid, "quality_all", sum(rr["checks_failed"] for rr in results), sum(rr["rows_failed"] for rr in results), _dur, "PASS" if all(rr["checks_failed"] == 0 for rr in results) else "FAIL", t0, t1)
+        _log_quality(
+            eng,
+            rid,
+            "quality_all",
+            sum(rr["checks_failed"] for rr in results),
+            sum(rr["rows_failed"] for rr in results),
+            _dur,
+            "PASS" if all(rr["checks_failed"] == 0 for rr in results) else "FAIL",
+            t0,
+            t1,
+        )
     except Exception:
         log.warning("Quality observability logging failed — ignored.", exc_info=True)
 

@@ -37,6 +37,16 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 - `scripts/bash/db_reset.sh` for rapid environment teardown and rebuild.
 - `make gx` target in Makefile to execute Great Expectations suites.
 - `make test` and `make test-cov` targets for Python unit tests.
+- One-command Docker Compose demo (`docker-compose.yml` + `docker/Dockerfile` + `docker/postgres-init/01_schemas.sql` + `docker/mongo-seed/01_seed.js` + `docker/README.md`) with Postgres 16 + Mongo 7 + pipeline service (healthchecked, `make pipeline` on `docker compose up`), see `README.md` One-command demo.
+- Dagster asset DAG (`orchestration/assets/staging.py`, `core.py`, `quality.py`, `definitions.py`, `orchestration/README.md`) with software-defined assets, dims-before-facts deps, `full_pipeline` job + `0 6 * * *` schedule, `docker-compose.yml` dagster profile on :3000.
+- SCD Type 2 on `dim_customers` (`valid_from`/`valid_to`/`is_current`, `UNIQUE(customer_id,valid_from)` + partial `UNIQUE(customer_id) WHERE is_current`, `tmp_final_customers` close+insert via `IS DISTINCT FROM`, `fact_orders` as-of `LATERAL` join) — see `models/dim_customers.sql` and `models/fact_orders.sql`, `docs/data_catlog.md` and `DECISIONS.md D2/D3`.
+- CI real pipeline (`.github/workflows/ci.yml` second job `pipeline` with `postgres:16-alpine` + `mongo:7` services, `docker/postgres-init` bootstrap, `docker/mongo-seed` via `mongosh`, `make pipeline` + Dagster load check).
+- Streamlit dashboard on `core` (`dashboard/Home.py`, `pages/1_*`–`5_*`, `lib/db.py` cached engine + `lib/charts.py`, `.streamlit/config.toml`, `requirements.txt`, `dashboard/README.md`) — funnel, sales (role-playing `dim_geo`), marketing (factless), inventory, pipeline health; live link placeholder in `README.md`.
+- dbt-core mirror (`dbt/dbt_project.yml`, `profiles.yml.example`, `packages.yml` `dbt_utils`, `models/staging/stg_*.sql` + `models/core/dim_*.sql`/`fact_*.sql` with `{{ ref() }}` lineage, `schema.yml` `not_null`/`unique`/`relationships` mirroring loops 1,3,5) — see `dbt/README.md`.
+- `docs/ADR-001-name-joins-vs-stable-ids.md` resolving `DECISIONS.md O5` (keep name-joins with `MIN`+`DISTINCT ON` and as-of `LATERAL` until source emits IDs) and promoting to `D11`/`D12`.
+- Pipeline observability (`core.pipeline_run_log` via `sql/11_pipeline_run_log.sql`, instrumented `run_models.py` + `run_data_quality_loops.py` + `gx_run.py` per-model/stage logging, surfaced in `dashboard/pages/5_Pipeline_Health.py`).
+- Ingest-time validation (`utils/validation.py` Pydantic per-collection models + `staging.quarantine_log`, validated in `pg_staging.py` before upsert, log don't fail) — ties to `campaing_sku` drift.
+- Live hosting scaffolding (`.github/workflows/refresh.yml` nightly 06:30 UTC pipeline → `pg_dump -n core` → `$NEON_CONNECTION_STRING`, `docs/HOSTING.md` for Neon/Supabase + Streamlit Cloud, artifact upload).
 
 ### Changed
 - `gx/README.md` and `docs/scripts.md`: document `gx_run.py` (how the runner resolves placeholders, what gets skipped, exit codes) and the expanded `main.py` stage list.

@@ -94,7 +94,10 @@ def _ensure_log_table(engine) -> None:
         with engine.begin() as conn:
             conn.execute(text(ddl))
     except Exception:
-        log.warning("Could not ensure pipeline_run_log table — logging will be best-effort.", exc_info=True)
+        log.warning(
+            "Could not ensure pipeline_run_log table — logging will be best-effort.",
+            exc_info=True,
+        )
 
 
 def _log_run(
@@ -133,7 +136,11 @@ def _log_run(
                 },
             )
     except Exception:
-        log.warning("Failed to write pipeline_run_log for %s — ignored.", model_name, exc_info=True)
+        log.warning(
+            "Failed to write pipeline_run_log for %s — ignored.",
+            model_name,
+            exc_info=True,
+        )
 
 
 def _row_count(engine, table: str) -> int | None:
@@ -233,7 +240,18 @@ def main() -> int:
             log.warning(f"{name}: skipped, earlier model failed.")
             result = ModelResult(name, "SKIP", error="earlier model failed")
             results.append(result)
-            _log_run(engine, run_id, "models", name, None, None, "SKIP", t0, datetime.now(UTC), result.error)
+            _log_run(
+                engine,
+                run_id,
+                "models",
+                name,
+                None,
+                None,
+                "SKIP",
+                t0,
+                datetime.now(UTC),
+                result.error,
+            )
             continue
 
         if not path.exists():
@@ -241,7 +259,18 @@ def main() -> int:
             log.warning(f"{name}: file not found at {path}, skipping.")
             result = ModelResult(name, "SKIP", error="file not found")
             results.append(result)
-            _log_run(engine, run_id, "models", name, None, None, "SKIP", t0, datetime.now(UTC), result.error)
+            _log_run(
+                engine,
+                run_id,
+                "models",
+                name,
+                None,
+                None,
+                "SKIP",
+                t0,
+                datetime.now(UTC),
+                result.error,
+            )
             continue
 
         with console.status(f"[cyan]Running {name}..."):
@@ -250,7 +279,11 @@ def main() -> int:
 
         duration_ms = int((time.perf_counter() - start_perf) * 1000)
         t1 = datetime.now(UTC)
-        row_count = _row_count(engine, MODEL_TO_TABLE.get(name)) if result.status == "PASS" else None
+        row_count = (
+            _row_count(engine, MODEL_TO_TABLE.get(name))
+            if result.status == "PASS"
+            else None
+        )
 
         if result.status == "PASS":
             console.print(f"[green]  PASS  {name}[/green]  ({result.duration:.2f}s)")
@@ -263,7 +296,18 @@ def main() -> int:
             log.error(f"{name}: failed after {result.duration:.2f}s — {result.error}")
             stop = True
 
-        _log_run(engine, run_id, "models", name, row_count, duration_ms, result.status, t0, t1, result.error)
+        _log_run(
+            engine,
+            run_id,
+            "models",
+            name,
+            row_count,
+            duration_ms,
+            result.status,
+            t0,
+            t1,
+            result.error,
+        )
 
     console.print()
     print_summary(console, results)
