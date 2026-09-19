@@ -29,10 +29,11 @@ COPY models ./models
 COPY sql ./sql
 COPY gx ./gx
 COPY tests ./tests
+COPY orchestration ./orchestration
 COPY main.py ./
 
-# Install deps (including dev for ruff/pytest if needed, but prod is enough for pipeline)
-RUN uv sync --frozen
+# Install deps — include dev group so dagster/gx/ruff are available in demo
+RUN uv sync --frozen --group dev
 
 # Copy remaining project files
 COPY . .

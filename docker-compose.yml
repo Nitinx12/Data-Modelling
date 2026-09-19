@@ -8,6 +8,7 @@
 #   postgres  — Postgres 16, schemas created via docker/postgres-init/01_schemas.sql
 #   mongo     — Mongo 7, seeded via docker/mongo-seed/01_seed.js into `source` DB
 #   pipeline  — Python 3.13 + uv, waits for both DBs healthy then runs `make pipeline`
+#   dagster   — Dagster UI (optional, --profile dagster) at http://localhost:3000
 
 services:
   postgres:
@@ -79,10 +80,46 @@ services:
       - /app/.venv
       - /app/__pycache__
       - /app/logs
-    command: ["bash", "-lc", "uv sync --frozen && make pipeline"]
+    command: ["bash", "-lc", "uv sync --frozen --group dev && make pipeline"]
     # Keep container alive for `docker compose exec pipeline ...` after pipeline finishes
     # Comment out `restart` if you want compose to exit when pipeline exits
     restart: "no"
+
+  dagster:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DATABASE: data_warehouse
+      POSTGRES_USERNAME: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_SCHEMA_BRONZE: staging
+      POSTGRES_SCHEMA_STAGING: staging
+      POSTGRES_SCHEMA_SILVER: core
+      POSTGRES_SCHEMA_CORE: core
+      POSTGRES_SCHEMA_GOLD: analytics
+      POSTGRES_SCHEMA_ANALYTICS: analytics
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: source
+      PYTHONUTF8: 1
+      DATA_MODELLING_NO_DOTENV: 0
+      DAGSTER_HOME: /app
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/.venv
+      - /app/__pycache__
+      - /app/logs
+    command: ["uv", "run", "dagster", "dev", "-m", "orchestration.definitions", "--host", "0.0.0.0", "--port", "3000"]
+    profiles: ["dagster"]
 
 volumes:
   pgdata:
