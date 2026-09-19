@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>MongoDB → PostgreSQL → dbt → Dagster → Streamlit</b><br>
-  An analytics-engineering warehouse — not a notebook demo.
+  <!-- An analytics-engineering warehouse — not a notebook demo. -->
 </p>
 
 <p align="center">
