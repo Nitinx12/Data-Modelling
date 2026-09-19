@@ -1,0 +1,15 @@
+# Copy to profiles.yml (gitignored) or set env vars for dbt.
+# dbt reads env_var() so Docker/CI can inject POSTGRES_* without a file.
+warehouse:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('POSTGRES_HOST', 'localhost') }}"
+      user: "{{ env_var('POSTGRES_USERNAME', 'user') }}"
+      pass: "{{ env_var('POSTGRES_PASSWORD', 'password') }}"
+      port: "{{ env_var('POSTGRES_PORT', '5432') | as_number }}"
+      dbname: "{{ env_var('POSTGRES_DATABASE', 'data_warehouse') }}"
+      schema: analytics
+      threads: 4
+      keepalives_idle: 0
