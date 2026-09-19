@@ -1,0 +1,128 @@
+# refresh.yml — nightly pipeline + Neon/Supabase sync for the live dashboard
+# (roadmap Tier 3 item 10). Keeps the hosted `core` schema fresh without
+# manual pg_dump. Streamlit Community Cloud reads from the same Neon DB.
+#
+# Setup (once):
+#   1) Create a free Neon (neon.tech) or Supabase project.
+#   2) In GitHub repo Settings → Secrets and variables → Actions, add:
+#      - NEON_CONNECTION_STRING  (postgres://user:pass@host/db?sslmode=require)
+#      - MONGO_URI               (Atlas free tier, or keep ephemeral seed for demo)
+#      - MONGO_DB                (source)
+#   3) The dashboard's Streamlit Secrets must match the same Neon creds
+#      (share.streamlit.io → App settings → Secrets → [postgres] block).
+#
+# What it does on schedule (06:30 UTC daily, after Dagster's 06:00 job):
+#   - Spins up ephemeral Postgres+Mongo (same as ci.yml pipeline job)
+#   - Seeds + runs `make pipeline` (--strict)
+#   - pg_dumps just `core` and restores into $NEON_CONNECTION_STRING
+#   - Verifies row counts on Neon
+#
+# Manual runs: Actions → Refresh Live Warehouse → Run workflow
+
+name: Refresh Live Warehouse
+
+on:
+  schedule:
+    - cron: "30 6 * * *" # 06:30 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: refresh-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Pipeline + push core to Neon
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUTF8: "1"
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DATABASE: data_warehouse
+      POSTGRES_USERNAME: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_SCHEMA_BRONZE: staging
+      POSTGRES_SCHEMA_STAGING: staging
+      POSTGRES_SCHEMA_SILVER: core
+      POSTGRES_SCHEMA_CORE: core
+      POSTGRES_SCHEMA_GOLD: analytics
+      POSTGRES_SCHEMA_ANALYTICS: analytics
+      MONGO_URI: mongodb://localhost:27017
+      MONGO_DB: source
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: data_warehouse
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready -U user -d data_warehouse
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+      mongo:
+        image: mongo:7
+        ports: ["27017:27017"]
+        options: >-
+          --health-cmd mongosh --quiet --eval "db.adminCommand('ping').ok" --health-interval 5s --health-timeout 5s --health-retries 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Sync dependencies
+        run: uv sync --group dev --frozen
+
+      - name: Install psql + mongosh
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
+          if ! command -v mongosh >/dev/null 2>&1; then npm install -g mongosh; fi
+
+      - name: Bootstrap Postgres schemas
+        run: PGPASSWORD=password psql -h localhost -U user -d data_warehouse -v ON_ERROR_STOP=1 -f docker/postgres-init/01_schemas.sql
+
+      - name: Seed MongoDB
+        run: mongosh mongodb://localhost:27017/source --eval "load('docker/mongo-seed/01_seed.js')"
+
+      - name: Run full pipeline
+        run: make pipeline
+
+      - name: Dump core schema
+        run: PGPASSWORD=password pg_dump -h localhost -U user -d data_warehouse -n core --no-owner --no-privileges -f core_dump.sql
+
+      - name: Restore core to Neon (if secret set)
+        if: env.NEON_CONNECTION_STRING != ''
+        env:
+          NEON_CONNECTION_STRING: ${{ secrets.NEON_CONNECTION_STRING }}
+        run: |
+          if [ -z "$NEON_CONNECTION_STRING" ]; then
+            echo "NEON_CONNECTION_STRING not set — skipping Neon push (set it in repo Secrets to enable live dashboard refresh)."
+            exit 0
+          fi
+          # Ensure core schema exists on Neon, then restore
+          psql "$NEON_CONNECTION_STRING" -c "CREATE SCHEMA IF NOT EXISTS core;"
+          # Drop and recreate core tables via dump (clean restore)
+          psql "$NEON_CONNECTION_STRING" -v ON_ERROR_STOP=1 -f core_dump.sql
+          psql "$NEON_CONNECTION_STRING" -c "SELECT count(*) FROM core.fact_orders; SELECT count(*) FROM core.dim_customers WHERE is_current;"
+
+      - name: Upload core dump artifact (for manual restore)
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-dump
+          path: core_dump.sql
+          retention-days: 7

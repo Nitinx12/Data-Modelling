@@ -28,7 +28,9 @@ with st.spinner("Loading health…"):
 
                 # Aggregate per run_id: any FAIL in run -> run FAIL
                 runs = log_recent.copy()
-                runs["started_at"] = __import__("pandas").to_datetime(runs["started_at"])
+                runs["started_at"] = __import__("pandas").to_datetime(
+                    runs["started_at"]
+                )
                 fig = px.scatter(
                     runs,
                     x="started_at",
@@ -37,15 +39,23 @@ with st.spinner("Loading health…"):
                     symbol="stage",
                     hover_data=["model_name", "row_count"],
                     title="Recent run durations (ms) — color by status",
-                    color_discrete_map={"PASS": "#10B981", "FAIL": "#EF4444", "SKIP": "#F59E0B"},
+                    color_discrete_map={
+                        "PASS": "#10B981",
+                        "FAIL": "#EF4444",
+                        "SKIP": "#F59E0B",
+                    },
                 )
                 st.plotly_chart(fig, use_container_width=True)
             except Exception:
                 pass
         else:
-            st.caption("No pipeline_run_log entries yet — run `make pipeline` to populate observability.")
+            st.caption(
+                "No pipeline_run_log entries yet — run `make pipeline` to populate observability."
+            )
     except Exception:
-        st.caption("pipeline_run_log not yet created — run the pipeline once (sql/11_pipeline_run_log.sql creates it).")
+        st.caption(
+            "pipeline_run_log not yet created — run the pipeline once (sql/11_pipeline_run_log.sql creates it)."
+        )
 
     # Table counts
     try:
