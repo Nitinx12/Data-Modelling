@@ -132,6 +132,59 @@ def get_watermark(cur, table: str):
     return cur.fetchone()[0]
 
 
+def _ensure_quarantine_log(cur) -> None:
+    try:
+        # Use same PG_SCHEMA as staging target for quarantine_log
+        cur.execute(
+            sql.SQL(
+                """
+                CREATE TABLE IF NOT EXISTS {schema}.quarantine_log (
+                    quarantine_id BIGSERIAL PRIMARY KEY,
+                    collection VARCHAR(100) NOT NULL,
+                    doc_id TEXT,
+                    error TEXT NOT NULL,
+                    doc_json TEXT,
+                    quarantined_at TIMESTAMP NOT NULL DEFAULT now()
+                )
+                """
+            ).format(schema=sql.Identifier(PG_SCHEMA))
+        )
+        cur.execute(
+            sql.SQL(
+                "CREATE INDEX IF NOT EXISTS ix_quarantine_log_collection ON {schema}.quarantine_log (collection)"
+            ).format(schema=sql.Identifier(PG_SCHEMA))
+        )
+    except Exception:
+        log.warning(
+            "Could not ensure quarantine_log table — violations will only be logged.",
+            exc_info=True,
+        )
+
+
+def _log_violations(cur, collection: str, violations: list[dict]) -> None:
+    if not violations:
+        return
+    try:
+        _ensure_quarantine_log(cur)
+        for v in violations:
+            cur.execute(
+                sql.SQL(
+                    "INSERT INTO {schema}.quarantine_log (collection, doc_id, error, doc_json) VALUES (%s, %s, %s, %s)"
+                ).format(schema=sql.Identifier(PG_SCHEMA)),
+                (collection, v["doc_id"], v["error"], v["doc_json"]),
+            )
+        log.warning(
+            f"[{collection}] quarantined {len(violations)} doc(s) — see {PG_SCHEMA}.quarantine_log"
+        )
+        for v in violations[:3]:
+            log.warning(f"[{collection}] violation doc_id={v['doc_id']}: {v['error']}")
+    except Exception:
+        log.warning(
+            f"[{collection}] failed to write quarantine_log — violations dropped.",
+            exc_info=True,
+        )
+
+
 def extract_from_mongo(collection: str, watermark) -> pl.DataFrame:
     db = get_mongo_db()
     coll = db[collection]
@@ -146,7 +199,33 @@ def extract_from_mongo(collection: str, watermark) -> pl.DataFrame:
     for d in docs:
         d[MERGE_KEY] = str(d[MERGE_KEY])  # ObjectId -> str, field name kept as-is
 
-    log.info(f"[{collection}] extracted {len(docs)} document(s)")
+    # ── Ingest-time validation (roadmap Tier 3 item 9) — Pydantic, log don't fail
+    try:
+        from utils.validation import validate_docs
+
+        valid_docs, violations = validate_docs(collection, docs)
+        if violations:
+            # Need a cursor to log — stash violations on the DataFrame via attribute?
+            # Instead, log now if we have a Postgres cursor available; otherwise just warn.
+            # Extracted docs are validated here; actual quarantine INSERT happens in run_load
+            # where a cursor is available. Store violations for caller to log.
+            extract_from_mongo._last_violations = (collection, violations)  # type: ignore[attr-defined]
+            log.warning(
+                f"[{collection}] validation: {len(violations)} violation(s) of {len(docs)} docs"
+            )
+            docs = valid_docs
+        else:
+            extract_from_mongo._last_violations = None  # type: ignore[attr-defined]
+    except Exception:
+        log.warning(
+            f"[{collection}] validation failed — loading all docs without quarantine.",
+            exc_info=True,
+        )
+        extract_from_mongo._last_violations = None  # type: ignore[attr-defined]
+
+    log.info(
+        f"[{collection}] extracted {len(docs)} document(s) ({len(docs)} after validation)"
+    )
     return pl.DataFrame(docs) if docs else pl.DataFrame()
 
 
@@ -238,6 +317,10 @@ def run_load(cur, collection: str) -> dict:
         )
 
     df = extract_from_mongo(collection, watermark)
+    # Quarantine log for ingest validation (needs cursor, so do it here)
+    _last = getattr(extract_from_mongo, "_last_violations", None)
+    if _last and _last[0] == collection and _last[1]:
+        _log_violations(cur, collection, _last[1])
     rows_extracted = df.height
     rows_loaded = 0
 
