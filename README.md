@@ -26,18 +26,12 @@
   <a href="https://github.com/Nitinx12/Data-Modelling"><img src="https://img.shields.io/badge/GitHub-Nitinx12-181717?style=flat&logo=github&logoColor=white" alt="GitHub"></a>
 </p>
 
----
-
-### Built to mirror how a real analytics-engineering team would ship this — not a notebook demo.
-
-> **Kimball warehouse** (5 dims · 5 facts, SCD2 `dim_customers`, role-playing `dim_geo`, junk `dim_orders_flag`) with **incremental PySpark/Mongo → Postgres staging** (Pydantic-validated, `staging.quarantine_log`), **two independent quality gates** at every handoff (catalog-driven SQL loops + Great Expectations), and **one pipeline, three runners** (Makefile, Dagster, Docker).
-
----
+> **Kimball warehouse** — 5 dims (`dim_customers` SCD2, `dim_geo` ×2, `dim_orders_flag` junk) · 5 facts · incremental Mongo → Postgres (`staging.quarantine_log`) · double-gated quality (SQL loops + GX) · one pipeline, three runners (Makefile/Dagster/Docker).
 
 ## Live Dashboard — `core` warehouse
 
 <p align="center">
-  <a href="https://data-modelling-uclgdbxwbuwhw9dtk4q9t8.streamlit.app"><img src="assets/new_logo.png" alt="Warehouse Dashboard" width="640"></a><br>
+  <a href="https://data-modelling-uclgdbxwbuwhw9dtk4q9t8.streamlit.app"><img src="assets/image.png" alt="Warehouse Dashboard" width="640"></a><br>
   <em>Seeded demo DB — not the live pipeline. See <code>dashboard/README.md</code> + <code>docs/HOSTING.md</code>.</em>
 </p>
 
