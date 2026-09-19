@@ -45,7 +45,7 @@ The app resolves creds in order: `st.secrets["postgres"]` → `utils.engine` / `
 1. Push `dashboard/` to GitHub (ensure `dashboard/.streamlit/secrets.toml` is gitignored).
 2. https://share.streamlit.io → New app → repo/branch → Main file `dashboard/Home.py`.
 3. Advanced → Secrets → paste `[postgres]` TOML (same as local secrets.toml).
-4. Deploy → `https://your-app-name.streamlit.app` — verify every page loads against the **cloud** DB.
+4. Deploy → `https://data-modelling-uclgdbxwbuwhw9dtk4q9t8.streamlit.app` — verify every page loads against the **cloud** DB.
 
 Add the URL to the top of `README.md` next to the CI badge.
 

@@ -67,7 +67,7 @@ password = "..."
 sslmode = "require"
 ```
 
-Deploy → `https://your-app-name.streamlit.app`.
+Deploy → `https://data-modelling-uclgdbxwbuwhw9dtk4q9t8.streamlit.app`.
 
 ### 5. Verify
 
