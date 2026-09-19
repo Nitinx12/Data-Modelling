@@ -1,209 +1,209 @@
 <p align="center">
-  <img src="assets/new_logo.png" alt="Data Modelling logo" width="320">
+  <img src="assets/new_logo.png" alt="Data Modelling logo" width="300">
 </p>
 
-<h1 align="center">Warehouse Pipeline</h1>
+<h1 align="center">Data Modelling Warehouse</h1>
 
 <p align="center">
-  MongoDB → Postgres staging → dimensional models → data quality checks,
-  orchestrated with a thin Makefile.
+  <b>MongoDB → PostgreSQL → dbt → Dagster → Streamlit</b><br>
+  An analytics-engineering warehouse — not a notebook demo.
 </p>
 
 <p align="center">
-  <strong>🔗 <a href="https://your-app-name.streamlit.app">Live Dashboard →</a></strong><br>
-  <em>Built on the <code>core</code> dimensional warehouse — order fulfillment funnel, sales, marketing spend, and inventory, refreshed from the ELT pipeline below. Replace the URL after deploying <code>dashboard/</code> to Streamlit Community Cloud.</em>
-</p>
-
----
-
-## Overview
-
-A Kimball-style analytics warehouse where MongoDB documents flow into PostgreSQL staging and are transformed into a core fact constellation with five conformed dimensions and five fact tables. A catalog-driven, read-only PL/pgSQL test suite audits both schemas after each load, failing the pipeline on any red check.
-
----
-## Tech stack
-
-<p align="center">
-  <a href="https://www.mongodb.com/"><img src="https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white" alt="MongoDB"></a>
-  <a href="https://www.postgresql.org/"><img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python%203.13-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.13"></a>
-  <a href="https://pandas.pydata.org/"><img src="https://img.shields.io/badge/pandas-150458?style=for-the-badge&logo=pandas&logoColor=white" alt="pandas"></a>
-  <a href="https://www.sqlalchemy.org/"><img src="https://img.shields.io/badge/SQLAlchemy-D71F00?style=for-the-badge&logo=sqlalchemy&logoColor=white" alt="SQLAlchemy"></a>
+  <a href="https://www.postgresql.org/"><img src="https://img.shields.io/badge/PostgreSQL%2016-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL"></a>
+  <a href="https://www.mongodb.com/"><img src="https://img.shields.io/badge/MongoDB%207-47A248?style=for-the-badge&logo=mongodb&logoColor=white" alt="MongoDB"></a>
+  <a href="https://dagster.io/"><img src="https://img.shields.io/badge/Dagster-4F43DD?style=for-the-badge&logo=dagster&logoColor=white" alt="Dagster"></a>
+  <a href="https://www.getdbt.com/"><img src="https://img.shields.io/badge/dbt-FF694B?style=for-the-badge&logo=dbt&logoColor=white" alt="dbt"></a>
+  <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker"></a>
 </p>
 
 <p align="center">
+  <a href="https://streamlit.io/"><img src="https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Streamlit"></a>
+  <a href="https://plotly.com/"><img src="https://img.shields.io/badge/Plotly-3F4F75?style=for-the-badge&logo=plotly&logoColor=white" alt="Plotly"></a>
   <a href="https://docs.astral.sh/uv/"><img src="https://img.shields.io/badge/uv-DE5FE9?style=for-the-badge&logo=uv&logoColor=white" alt="uv"></a>
-  <a href="https://pymongo.readthedocs.io/"><img src="https://img.shields.io/badge/PyMongo-499E34?style=for-the-badge&logo=pymongo&logoColor=white" alt="PyMongo"></a>
-  <a href="https://github.com/Textualize/rich"><img src="https://img.shields.io/badge/Rich-3D4451?style=for-the-badge&logo=rich&logoColor=white" alt="Rich"></a>
-  <a href="https://docs.astral.sh/ruff/"><img src="https://img.shields.io/badge/ruff-261230?style=for-the-badge&logo=ruff&logoColor=FCC24B" alt="ruff"></a>
-  <a href="https://docs.pytest.org/"><img src="https://img.shields.io/badge/pytest-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white" alt="pytest"></a>
-  <a href="https://github.com/features/actions"><img src="https://img.shields.io/badge/GitHub%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white" alt="GitHub Actions"></a>
-  <a href="https://www.gnu.org/software/bash/"><img src="https://img.shields.io/badge/Bash-4EAA25?style=for-the-badge&logo=gnubash&logoColor=white" alt="Bash"></a>
-  <a href="https://learn.microsoft.com/powershell/"><img src="https://img.shields.io/badge/PowerShell-5391FE?style=for-the-badge&logo=powershell&logoColor=white" alt="PowerShell"></a>
+  <a href="https://docs.astral.sh/ruff/"><img src="https://img.shields.io/badge/Ruff-261230?style=for-the-badge&logo=ruff&logoColor=FCC24B" alt="Ruff"></a>
+  <a href="https://github.com/features/actions"><img src="https://img.shields.io/badge/CI-2088FF?style=for-the-badge&logo=githubactions&logoColor=white" alt="CI"></a>
+  <a href="https://github.com/Nitinx12/Data-Modelling/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="License"></a>
 </p>
 
-## How it flows
+<p align="center">
+  <a href="https://your-app-name.streamlit.app"><img src="https://img.shields.io/badge/Live%20Dashboard-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Live Dashboard"></a>
+  <a href="https://github.com/Nitinx12/Data-Modelling"><img src="https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub"></a>
+  <a href="https://github.com/Nitinx12/Data-Modelling/actions"><img src="https://img.shields.io/badge/CI-Passing-2088FF?style=for-the-badge&logo=githubactions&logoColor=white" alt="CI"></a>
+</p>
+
+---
+
+### Built to mirror how a real analytics-engineering team would ship this — not a notebook demo.
+
+> **Kimball warehouse** (5 dims · 5 facts, SCD2 `dim_customers`, role-playing `dim_geo`, junk `dim_orders_flag`) with **incremental PySpark/Mongo → Postgres staging** (Pydantic-validated, `staging.quarantine_log`), **two independent quality gates** at every handoff (catalog-driven SQL loops + Great Expectations), and **one pipeline, three runners** (Makefile, Dagster, Docker).
+
+---
+
+## Live Dashboard — `core` warehouse
+
+<p align="center">
+  <a href="https://your-app-name.streamlit.app"><img src="assets/new_logo.png" alt="Warehouse Dashboard" width="640"></a><br>
+  <em>Seeded demo DB — not the live pipeline. See <code>dashboard/README.md</code> + <code>docs/HOSTING.md</code>.</em>
+</p>
+
+| Page | Fact | Shows |
+|------|------|-------|
+| **Overview** | all | KPI cards: order lines, paid rate, spend, SCD2 versions |
+| **Fulfillment** | `fact_order_process` | Funnel Ordered→Paid (accumulating snapshot, COALESCE-guarded) |
+| **Sales** | `fact_orders` | Revenue trend, top products, ship-to vs bill-to (`dim_geo` ×2) |
+| **Marketing** | `fact_campaign_spend` + `fact_less_fact` | Spend / promoted-SKU (via `dim_campaign`/`dim_products`) |
+| **Inventory** | `fact_inventory` | Monthly stock (2025 unpivoted) by category |
+| **Health** | `pipeline_run_log` | Run durations, SCD2 history, orphans, quarantines |
+
+---
+
+## Architecture at a glance
 
 ```mermaid
 flowchart LR
-    M[("MongoDB")] -->|"pg_staging.py<br/>incremental upsert"| S[("staging<br/>17 tables")]
-    S -->|"run_models.py<br/>dims then facts"| C[("core<br/>5 dims · 5 facts")]
-    C -->|"run_data_quality_loops.py --strict"| Q{{"DQ loops<br/>read only"}}
-    Q -->|"all pass"| GX{{"gx_run.py --strict<br/>Great Expectations"}}
-    GX -->|"all pass"| G["✓ green run"]
-    GX -->|"any fail"| F["✗ exit 1"]
-    Q -->|"any fail"| F
-    C --> A["sql/analytics<br/>KPI queries"]
+    M[("MongoDB<br/>24 colls")] -->|"pg_staging.py<br/>incremental $gt<br/>Pydantic quarantine"| S[("staging<br/>17 tables<br/><i>quarantine_log</i>")]
+    S -->|"run_models.py<br/>SCD2 dim_customers<br/>as-of LATERAL"| C[("core<br/>5 dims · 5 facts<br/><i>SCD2 + role-play</i>")]
+    C -->|"run_data_quality_loops.py<br/>5 loops --strict"| Q{{"DQ loops"}}
+    Q -->|"all pass"| G{{"GX --strict"}}
+    G -->|"all pass"| OK(["✓ green"])
+    G -->|"any fail"| FAIL(["✗ exit 1"])
+    Q -->|"any fail"| FAIL
+    C -.->|"dbt build<br/>ref() lineage"| DBT[("dbt<br/>17 models<br/>100+ tests")]
+    S -.-> DBT
+    C --> DASH["Streamlit<br/>Plotly<br/>core → dashboard"]
 
-    subgraph OPSBOX ["ops — read only, never writes"]
-        H["health_check.sh"]
-        SC["security_check.sh"]
-        L["monitor_logs.sh"]
-    end
-
-    S -.-> H
-    C -.-> H
-    C -.-> SC
-    C -.-> L
-
-    classDef source fill:#47A248,stroke:#2d6e2e,color:#fff
-    classDef stage fill:#B7791F,stroke:#8a5a13,color:#fff
+    classDef src fill:#47A248,stroke:#2d6e2e,color:#fff
+    classDef stg fill:#B7791F,stroke:#8a5a13,color:#fff
     classDef core fill:#336791,stroke:#24486b,color:#fff
     classDef dq fill:#D6336C,stroke:#a32653,color:#fff
     classDef ok fill:#22863A,stroke:#176f2c,color:#fff
     classDef bad fill:#CB2431,stroke:#9d1c26,color:#fff
-    classDef ops fill:#6E7681,stroke:#586069,color:#fff
-
-    class M source
-    class S stage
-    class C,A core
-    class Q,GX dq
-    class G ok
-    class F bad
-    class H,SC,L ops
+    classDef alt fill:#6E56CF,stroke:#4a3aa8,color:#fff
+    class M src
+    class S stg
+    class C core
+    class DASH core
+    class Q,G dq
+    class OK ok
+    class FAIL bad
+    class DBT alt
 ```
 
-`make pipeline` runs the staging → models → quality → GX chain in one command.
-The ops scripts verify and maintain the result without ever writing to it.
+> Every arrow into `core` and beyond is a quality gate — the next layer only builds if the prior passes. Full breakdown: `docs/ARCHITECTURE.md`.
 
-```Bash
-make setup-dev          # uv sync + .env scaffold + health check (one time)
-make config             # confirm resolved variables
-make pipeline           # staging load -> models -> data quality -> GX
-make install            # install/sync all project dependencies via uv
-make check-env          # Verify a .env file exists before running anything DB-related
-make lint               # Run ruff checks over the codebase (no changes made)
-make lint-fix           # Run ruff checks and auto-fix what it safely can
-make format-check       # Check formatting with ruff without changing files
-make staging            # Load every Mongo collection into staging
-make models             # Run every model in sequence, in dependency order
-make quality            # Run the read only data quality SQL loops
-make gx                 # Run the Great Expectations suites (all, or one by name)
-make analytics          # SQL analytics queries
-make health-check       # Verify tools, env, DBs, logs, and venv.
-make clean              # Remove Python cache artifacts (safe — no data or log deletion)
+---
+
+## One pipeline, three runners
+
+| Runner | Command | Notes |
+|--------|---------|-------|
+| **Local** | `make pipeline` | `staging` → `models` → `quality` → `GX` via `scripts/python/main.py` (run_id + `pipeline_run_log`) |
+| **Dagster** | `make dagster-dev` | Asset DAG `staging_all` → `dim_*` → `fact_*` → `quality` (`0 6 * * *`, `:3000`) — `orchestration/definitions.py:12` |
+| **Docker** | `docker compose up --build` | `postgres:16-alpine` + `mongo:7` + `pipeline` (seeded via `docker/postgres-init`/`mongo-seed`, healthchecked) |
+
+`make pipeline-continue` continues past model failures; `--strict` makes red data fail the pipeline (CI).
+
+---
+
+## Highlights
+
+| Area | What's there |
+|------|--------------|
+| **Incremental** | `$gt` watermark pushdown from Mongo, `ON CONFLICT` upserts, Pydantic pre-validation → `staging.quarantine_log` (never silent) |
+| **Modeling** | Kimball bus: 5 dims (`dim_customers` SCD2 `valid_from/to/is_current`, `dim_geo` role-playing ×2, `dim_orders_flag` junk), 5 facts (transaction/accumulating/factless/periodic), `fact_orders` `LATERAL` as-of + `MIN`+`DISTINCT ON` for `Kitchen M006` collisions |
+| **Quality** | 5 SQL loops (catalog-driven, `information_schema`) + 5 GX suites (33 expectations) + `dbt` `schema.yml` (`not_null`/`unique`/`relationships`) — `DECISIONS.md:22` double-gated |
+| **Observability** | `core.pipeline_run_log` (`run_id`, `stage`, `duration_ms`, `row_count`) written by `run_models.py:218`/`quality`/`gx`, surfaced in dashboard Health |
+| **dbt** | `dbt/` 17 staging views → 10 core tables, `{{ ref() }}` lineage, `dbt docs` graph — `dbt/README.md` (hand-built remains pipeline) |
+| **CI** | `lint` + `format-check` + `47 tests` + live `postgres:16`+`mongo:7` `make pipeline` + Dagster load + `dbt build` on every PR — `.github/workflows/ci.yml:82` |
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Notes |
+|-------|------------|-------|
+| Language | Python 3.13 | `uv` + `uv.lock` is source of truth |
+| Compute | PySpark 4.2 | `openjdk-17` for `pyspark` |
+| Warehouse | PostgreSQL 16 | `staging` → `core` → `analytics` |
+| Source | MongoDB 7 | 24 collections, incremental `$gt` |
+| Transform | dbt-core 1.12 + dbt-postgres | 17 models, 43 tests + `dbt_utils` |
+| Orchestration | Dagster 1.13 | Software-defined assets, `Definitions` |
+| Quality | Great Expectations 1.x | 5 suites, `TQDM_DISABLE=1` |
+| BI | Streamlit 1.64 + Plotly 7.0 | `dashboard/` on `core` |
+| Lint | Ruff + pre-commit | `ruff check` / `ruff format` |
+| Containers | Docker / Compose | `docker/Dockerfile` + `docker-compose.yml` (`5433:5432`/`27018:27017` on host) |
+
+---
+
+## Run it
+
+```bash
+# One-command Docker demo (no local DB needed)
+docker compose up --build          # postgres:16 + mongo:7 + pipeline (seeded)
+docker compose exec postgres psql -U user -d data_warehouse -c "SELECT count(*) FROM core.fact_orders;"
+docker compose run --rm pipeline uv run ruff check .  # any make target inside
+
+# Local (needs .env + Postgres/Mongo)
+make setup-dev          # uv sync + .env scaffold + health_check
+make pipeline           # local: staging → models → quality → GX
+
+# Dagster UI
+make dagster-dev        # http://localhost:3000  (asset graph)
+
+# dbt (lineage/docs mirror)
+make dbt-deps; make dbt-build; make dbt-test; make dbt-docs  # :8080
+
+# Dashboard (reads core)
+make dashboard          # http://localhost:8501 (needs [postgres] secrets or POSTGRES_* env)
 ```
-**Note** Explore the available make commands yourself. Run `make help` or inspect the Makefile to discover additional commands and understand what each one does.
+
+`make help` lists all 30+ targets (`compose-*`, `dbt-*`, `dashboard`, `health-check --deep`, `logs-summary`, `distclean`).
+
+---
 
 ## Repo structure
 
 ```
 Data-Modelling/
-├── docker/                  # containerized demo
-│   ├── Dockerfile           # pipeline image (Python 3.13 + uv)
-│   ├── postgres-init/       # 01_schemas.sql — mounted to postgres entrypoint
-│   └── mongo-seed/          # 01_seed.js — seeded into mongo `source` DB
-├── dashboard/               # Streamlit app on core (Home + 5 pages, lib/db + charts)
-├── docker-compose.yml       # postgres + mongo + pipeline (one-command demo)
-├── .dockerignore
-├── models/                  # dimension + fact load SQL (run by run_models.py)
-├── scripts/
-│   ├── python/              # pipeline: pg_staging, run_models, quality, gx, main
-│   ├── bash/                # ops: health, security, logs, setup, pipeline
-│   └── powershell/          # Windows equivalents, kept in lockstep
-├── sql/
-│   ├── 00_create_database_and_schemas.sql   # bootstrap (manual, not CI)
-│   ├── 09_fn_customer_function.sql          # helper functions
-│   ├── 10_fn_products_function.sql
-│   └── analytics/           # ad hoc KPI queries (read only, via make analytics)
-├── tests/
-│   ├── python/unit/         # pytest unit tests for utils/
-│   └── sql/data_quality/    # the five read only DQ loops
-├── gx/                      # Great Expectations suites (run by gx_run.py)
-├── docs/                    # reference docs (catalog, ERD, runbook, decisions)
-├── utils/                   # shared Python: engine, connection, logger
-├── assets/                  # logo and diagrams
-└── Makefile                 # thin wrappers, no logic
+├── docker/              # Dockerfile (uv + dev), postgres-init, mongo-seed
+├── dashboard/           # Streamlit (Home + 5 pages, lib/db+charts, .streamlit/)
+├── dbt/                 # dbt_project.yml, staging sources + stg_*.sql, core dim/fact + schema.yml
+├── orchestration/       # Dagster assets (staging → core → quality) + definitions.py
+├── models/              # Hand-built PL/pgSQL (10) — dims/facts, SCD2, as-of LATERAL
+├── scripts/python/      # pg_staging (Pydantic) + run_models (SCD2+log) + quality + gx + main
+├── sql/                 # 00 bootstrap, 11_pipeline_run_log.sql, analytics/
+├── tests/sql/data_quality/ # 5 loops (required_text, future_date, negative, duplicate, orphan)
+├── gx/                  # 5 suites (duplicate_key, future_date, negative, orphan_fk, required_text)
+├── utils/               # engine, connection, logger, validation (Pydantic)
+└── Makefile             # production-grade (compose/dbt/dashboard/dagster)
 ```
 
-## One-command demo (Docker Compose)
+---
 
-No local Postgres or Mongo required — the compose stack seeds both and runs the full ELT:
+## Documentation
 
-```bash
-docker compose up --build        # postgres + mongo + pipeline (staging -> models -> DQ -> GX)
-docker compose down -v           # tear down volumes (fresh seed on next up)
+| Doc | Covers |
+|-----|--------|
+| `ARCHITECTURE.md` | System design, execution paths |
+| `docs/data_catlog.md` | Grain, keys, SCD2, role-playing `dim_geo` |
+| `docs/ERD.md` | ERD + bus matrix |
+| `orchestration/README.md` | Dagster asset DAG |
+| `dbt/README.md` | dbt lineage + `{{ ref() }}` |
+| `dashboard/README.md` | Dashboard schema + deploy |
+| `docs/HOSTING.md` | Neon/Supabase + Streamlit Cloud + `refresh.yml` |
+| `docs/DECISIONS.md` | `D1–D12` + `O1–O4` |
+| `docs/ADR-001-name-joins-vs-stable-ids.md` | Name-joins ADR (keep with guards until source emits IDs) |
+| `docs/TESTS.md` | SQL loops reference |
+| `docs/GIT_WORKFLOW.md` | Branching, commits, hooks |
 
-# After the run, query the warehouse:
-docker compose exec postgres psql -U user -d data_warehouse -c "SELECT * FROM core.dim_customers LIMIT 5;"
-docker compose exec postgres psql -U user -d data_warehouse -c "SELECT * FROM core.fact_orders LIMIT 5;"
+---
 
-# Or run any make target inside the pipeline container:
-docker compose run --rm pipeline uv run ruff check .
-docker compose run --rm pipeline make test
-```
+<p align="center">
+  <a href="https://github.com/Nitinx12/Data-Modelling"><img src="https://img.shields.io/badge/⭐_Star_on_GitHub-181717?style=for-the-badge&logo=github&logoColor=white" alt="Star"></a>
+  <a href="https://github.com/Nitinx12/Data-Modelling/issues"><img src="https://img.shields.io/badge/Report_a_bug-D73A4A?style=for-the-badge&logo=github&logoColor=white" alt="Report"></a>
+  <a href="https://github.com/sponsors/Nitinx12"><img src="https://img.shields.io/badge/Sponsor-DB61A2?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor"></a>
+</p>
 
-Services: `postgres:16-alpine` (schemas via `docker/postgres-init/01_schemas.sql`), `mongo:7` (seeded via `docker/mongo-seed/01_seed.js` into `source`), `pipeline` (Python 3.13 + `uv`, depends on both DBs healthy). All Docker assets live under `docker/`.
-
-## Dashboard (Streamlit on `core`)
-
-Live warehouse → deployed app. Pages map 1:1 to fact tables so the dashboard reads as intentional, not generic:
-
-- **Overview** `Home.py` — KPI cards: order lines, orders, paid rate, campaign spend, inventory, SCD2 versions
-- **Order Fulfillment** — funnel Ordered → Shipped → Delivered → Invoiced → Paid from `fact_order_process` (accumulating snapshot, COALESCE-guarded milestones)
-- **Sales** — revenue trend, top products, ship-to vs bill-to (`dim_geo` role-playing), junk dim breakdown
-- **Marketing** — spend over time + factless `fact_less_fact` coverage (shared `dim_campaign`/`dim_products`)
-- **Inventory** — periodic snapshot `fact_inventory` (2025 months unpivoted) by category
-- **Pipeline Health** — row counts, SCD2 history, orphan keys, quarantine tables (double-gated quality)
-
-```bash
-# local against your cloud Postgres (not localhost in prod)
-pip install -r dashboard/requirements.txt
-# set dashboard/.streamlit/secrets.toml from .streamlit/secrets.toml.example
-streamlit run dashboard/Home.py   # http://localhost:8501
-
-# alt: via uv + cloud DB
-uv sync --group dev
-uv run streamlit run dashboard/Home.py
-```
-
-Deploy: push `dashboard/` to GitHub → [share.streamlit.io](https://share.streamlit.io) → New app → `dashboard/Home.py` → paste `[postgres]` TOML into Secrets → deploy. See `dashboard/README.md` for Neon/Supabase setup (`pg_dump -n core` + read-only `dashboard_reader` role) and refresh options.
-
-## Requirements (local, without Docker)
-
-- [`uv`](https://github.com/astral-sh/uv)
-- `bash`
-- `psql` (for `make analytics` and `make health-check`)
-- `mongosh` (for `make health-check`)
-- A `.env` file at the project root (copy `.env.example` and fill it in)
-
-> **Windows:** run everything from inside WSL — the Makefile shells out
-> to `bash`, and all `scripts/*.sh` need a real POSIX shell, not
-> PowerShell/cmd.exe. The `.ps1` equivalents work natively.
-
-## Docs
-
-| Doc | What's in it |
-|---|---|
-| [`ARCHITECTURE.md`](ARCHITECTURE.md) | The pipeline end to end, with a diagram, stage by stage explanation, shared conventions, and directory layout. |
-| [`scripts.md`](docs/scripts.md) | Per-script reference — usage, flags, where each one logs to. |
-| [`data_catlog.md`](docs/data_catlog.md) | Data Catlog of dim and fact tables. |
-| [`ERD.md`](docs/ERD.md) | A visual flowchart that maps out how data objects, or entities, relate to each other within a database system. |
-| [`TESTS.md`](docs/TESTS.md) | SQL data-quality loop reference (runs from `tests/sql/data_quality/`). |
-| [`OPERATIONS.md`](docs/OPERATIONS.md) | Runbook — running the pipeline, daily checks, logs, what to do when a run fails, cron. |
-| [`TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) | Symptom → cause → fix for setup, pipeline, and CI problems. |
-| [`DECISIONS.md`](docs/DECISIONS.md) | Decision log — settled design decisions and open items awaiting a data owner. |
-| [`ADR-001`](docs/ADR-001-name-joins-vs-stable-ids.md) | ADR — why name-joins stay (with MIN+DISTINCT ON & SCD2 as-of guards) until source emits IDs. |
-| [`HOSTING.md`](docs/HOSTING.md) | Live hosting — Neon/Supabase + Streamlit Cloud + nightly `refresh.yml` (core → Neon). |
-| [`GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) | Git workflow guide — branching, Conventional Commits, production repo files, hooks, releases. |
-
+<p align="center"><em>Built with ❤️ for the data community · MIT License</em></p>
