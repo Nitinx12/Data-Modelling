@@ -1,11 +1,12 @@
 import streamlit as st
-from lib.db import last_refresh, run_query
+from lib.db import db_source, last_refresh, run_query
 
 st.set_page_config(page_title="Warehouse Analytics", page_icon="📦", layout="wide")
 st.title("📦 Warehouse Analytics")
 st.caption(
     "Live view over the `core` dimensional warehouse — SCD2 `dim_customers` + SCD1 dims, fact constellation."
 )
+st.caption(f"Source: `{db_source()}`  •  schema: `core`  •  read-only queries")
 
 # Last refresh + repo link footer
 refresh = last_refresh()
@@ -23,7 +24,10 @@ with st.spinner("Loading KPIs…"):
                 (SELECT COUNT(DISTINCT order_id) FROM core.fact_order_process) AS total_orders,
                 (SELECT COUNT(*) FROM core.fact_order_process WHERE pay_date IS NOT NULL) AS paid_orders,
                 (SELECT COALESCE(SUM(spend), 0) FROM core.fact_campaign_spend) AS total_spend,
-                (SELECT COALESCE(SUM(quantity), 0) FROM core.fact_inventory) AS total_inventory_units,
+                (SELECT COALESCE(SUM(quantity), 0) FROM core.fact_inventory
+                 WHERE period_month = (SELECT MAX(period_month) FROM core.fact_inventory)
+                ) AS on_hand_units,
+                (SELECT TO_CHAR(MAX(period_month), 'YYYY-MM') FROM core.fact_inventory) AS on_hand_month,
                 (SELECT COUNT(*) FROM core.dim_customers WHERE is_current) AS current_customers,
                 (SELECT COUNT(*) FROM core.dim_customers) AS customer_versions
             """
@@ -38,7 +42,8 @@ with st.spinner("Loading KPIs…"):
 
         col5, col6, col7, col8 = st.columns(4)
         col5.metric(
-            "Inventory Units (all months)", f"{int(kpis.total_inventory_units):,}"
+            f"Inventory Units ({kpis.on_hand_month or 'n/a'} on-hand)",
+            f"{int(kpis.on_hand_units):,}",
         )
         col6.metric("Customers (current)", f"{int(kpis.current_customers):,}")
         col7.metric("Customer Versions (SCD2)", f"{int(kpis.customer_versions):,}")

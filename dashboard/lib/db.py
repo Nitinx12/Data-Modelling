@@ -110,6 +110,18 @@ def get_engine() -> Engine:
     return engine
 
 
+@st.cache_data(show_spinner=False)
+def db_source() -> str:
+    """Short `host:port/database` label for the data-source banner.
+
+    Answers "which database am I looking at?" without leaking credentials.
+    """
+    creds = _creds_from_secrets() or _creds_from_env()
+    if not creds or not creds.get("host"):
+        return "unknown"
+    return f"{creds['host']}:{creds.get('port', 5432)}/{creds.get('database') or '?'}"
+
+
 @st.cache_data(ttl=600, show_spinner=False)
 def run_query(sql: str, params: dict | None = None) -> pd.DataFrame:
     """Run a read-only SQL query against core and return a DataFrame.

@@ -81,22 +81,38 @@ with st.spinner("Loading marketing…"):
                 )
                 st.dataframe(coverage, use_container_width=True, hide_index=True)
 
-        # Spend per promoted SKU (join via conformed dims, not fact-to-fact)
+        # Spend per promoted SKU — one CTE per fact so the join cannot fan out
         st.subheader("Spend per promoted SKU (via shared dims)")
         spend_per_sku = run_query(
             """
+            WITH spend_by_campaign AS (
+                SELECT
+                    campaign_name
+                    , SUM(spend) AS total_spend
+                FROM core.fact_campaign_spend
+                GROUP BY campaign_name
+            )
+            , promoted_by_campaign AS (
+                SELECT
+                    dc.campaign_name
+                    , COUNT(DISTINCT l.product_key) AS promoted_skus
+                FROM core.dim_campaign dc
+                LEFT JOIN core.fact_less_fact l
+                    ON l.campaign_key = dc.campaign_key
+                GROUP BY dc.campaign_name
+            )
             SELECT
-                s.campaign_name,
-                COUNT(DISTINCT l.product_key) AS promoted_skus,
-                SUM(s.spend) AS total_spend,
-                CASE WHEN COUNT(DISTINCT l.product_key) > 0
-                     THEN SUM(s.spend) / COUNT(DISTINCT l.product_key)
+                s.campaign_name
+                , COALESCE(p.promoted_skus, 0) AS promoted_skus
+                , s.total_spend
+                , CASE
+                    WHEN COALESCE(p.promoted_skus, 0) > 0
+                    THEN s.total_spend / p.promoted_skus
                 END AS spend_per_sku
-            FROM core.fact_campaign_spend s
-            LEFT JOIN core.dim_campaign dc ON dc.campaign_name = s.campaign_name
-            LEFT JOIN core.fact_less_fact l ON l.campaign_key = dc.campaign_key
-            GROUP BY s.campaign_name
-            ORDER BY total_spend DESC
+            FROM spend_by_campaign s
+            LEFT JOIN promoted_by_campaign p
+                ON p.campaign_name = s.campaign_name
+            ORDER BY s.total_spend DESC
             """
         )
         if not spend_per_sku.empty:

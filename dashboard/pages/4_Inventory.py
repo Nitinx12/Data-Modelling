@@ -28,7 +28,7 @@ with st.spinner("Loading inventory…"):
                 SELECT period_month, p.product_name, f.quantity
                 FROM core.fact_inventory f
                 LEFT JOIN core.dim_products p ON p.product_key = f.product_key
-                WHERE p.category = %(cat)s
+                WHERE p.category = :cat
                 ORDER BY period_month
                 """,
                 params={"cat": cat},
