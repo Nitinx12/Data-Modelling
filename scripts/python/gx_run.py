@@ -177,8 +177,8 @@ def prepare_expectation(
     if value_set is None or value_set == []:
         # An expectation with a fk_to reference gets its value_set resolved
         # from the referenced table. An explicitly empty value_set without
-        # one (the composite uniqueness placeholders) is unresolvable. A
-        # missing value_set on an expectation that takes none at all (e.g.
+        # one is an unfinished placeholder. A missing value_set on an
+        # expectation that takes none at all (e.g.
         # expect_column_values_to_not_be_null) is simply not a placeholder.
         fk_ref = meta.get("fk_to")
         if fk_ref is not None:
@@ -311,7 +311,10 @@ def run_gx_suites(
                     if expectation_result.success:
                         continue
                     config = expectation_result.expectation_config
-                    column = config.kwargs.get("column", "?")
+                    # Compound expectations carry column_list, not column.
+                    column = config.kwargs.get("column") or config.kwargs.get(
+                        "column_list", "?"
+                    )
                     unexpected = (expectation_result.result or {}).get(
                         "unexpected_count", "?"
                     )

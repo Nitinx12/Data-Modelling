@@ -47,11 +47,15 @@ run time:
   from the referenced dimension — that is what turns
   `expect_column_values_to_be_in_set` into an orphan FK check.
 
+Composite unique keys use `expect_compound_columns_to_be_unique` with a
+`column_list` matching the table's real `UNIQUE` constraint
+(`(campaign_name, spend_date)` on `core.fact_campaign_spend`,
+`(order_id, line_id)` on `core.fact_orders`), so they run in GX as well as
+in SQL loop 4.
+
 Expectations that cannot run as written (an empty `value_set` with no
 `fk_to`, or no `meta.schema` target) are skipped with a `SKIP` line in the
-summary — the two composite uniqueness entries in
-`duplicate_key_suite.yaml` are examples; the SQL loop covers them. Like the
-SQL loops, the runner only ever reads from the database.
+summary. Like the SQL loops, the runner only ever reads from the database.
 
 `great_expectations.yml` is not used by `gx_run.py` — the ephemeral
 context is configured entirely in code — but documents the layout you

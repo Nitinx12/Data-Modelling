@@ -53,11 +53,11 @@ expectations:
       column: spend_key
     meta: { schema: core.fact_campaign_spend, constraint: PK }
 
-  - expectation_type: expect_column_distinct_values_to_be_in_set
+  - expectation_type: expect_compound_columns_to_be_unique
     kwargs:
-      column: order_id
-      value_set: []
-      expect_unique: true
+      column_list:
+        - campaign_name
+        - spend_date
     meta: { schema: core.fact_campaign_spend, constraint: UK, note: "composite (campaign_name, spend_date)" }
 
   - expectation_type: expect_column_values_to_be_unique
@@ -85,9 +85,9 @@ expectations:
       column: order_line_key
     meta: { schema: core.fact_orders, constraint: PK }
 
-  - expectation_type: expect_column_distinct_values_to_be_in_set
+  - expectation_type: expect_compound_columns_to_be_unique
     kwargs:
-      column: order_id
-      value_set: []
-      expect_unique: false
+      column_list:
+        - order_id
+        - line_id
     meta: { schema: core.fact_orders, constraint: "composite UK (order_id, line_id)" }
