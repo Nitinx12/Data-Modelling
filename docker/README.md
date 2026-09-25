@@ -55,5 +55,5 @@ docker compose run --rm pipeline uv run pytest tests/python/unit -v
 
 - **Idempotent**: Postgres/Mongo init scripts run only on first boot (when volumes are empty). Use `down -v` to re-seed.
 - **Live updates**: Project root is mounted into `pipeline:/app` so editing `models/*.sql` doesn't require a rebuild; Python deps do (`docker compose build pipeline`).
-- **Original bootstrap**: `sql/00_create_database_and_schemas.sql` (with `CREATE DATABASE` + `\c`) is for manual `psql` use; the container version is `docker/postgres-init/01_schemas.sql` (schemas only) to avoid `CREATE DATABASE` inside `docker-entrypoint-initdb.d`.
+- **Original bootstrap**: `sql/analytics/00_create_database_and_schemas.sql` (with `CREATE DATABASE` + `\c`) is for manual `psql` use; the container version is `docker/postgres-init/01_schemas.sql` (schemas only) to avoid `CREATE DATABASE` inside `docker-entrypoint-initdb.d`.
 - **Ports**: Both DBs are published to the host (`5432`, `27017`) so local `make pipeline` can also hit the container DBs if you point `.env` at `localhost`.

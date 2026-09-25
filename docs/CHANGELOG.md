@@ -67,6 +67,7 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 - Reorganized `scripts/` directory into `python/`, `bash/`, and `powershell/` subdirectories.
 - Reorganized `tests/` directory into `sql/data_quality/` and `python/unit/`.
 - Updated `Makefile`, `docs/scripts.md`, and `CLAUDE.md` to reflect new script and test paths.
+- Moved the four loose scripts that sat in `sql/` (`00_create_database_and_schemas.sql`, `09_fn_customer_function.sql`, `10_fn_products_function.sql`, `11_pipeline_run_log.sql`) into `sql/analytics/`, so `sql/` holds a single directory. Every path pointing at the old location was updated: the `README.md` repo tree, `docker/README.md`, the comment in `docker/postgres-init/01_schemas.sql`, the hint in `dashboard/pages/5_Pipeline_Health.py`, and `docs/SQL.md` (which also gains rows for `00_` and `11_`).
 
 ### Fixed
 - `health_check.sh --deep` (and `health_check.ps1 -Deep`) printed no warehouse table counts at all: the section's query joined `information_schema.tables` to `pg_stat_user_tables USING (table_schema, table_name)`, but that catalog view exposes `schemaname`/`relname`, so the query always errored and `2>/dev/null` hid it. The section now lists the tables and counts each with a real `SELECT COUNT(*)` (still read only; `n_live_tup` was rejected because it is a planner estimate that read 0 for every table). Verified: all 38 `staging`/`core` tables now print with row counts and the run stays green.

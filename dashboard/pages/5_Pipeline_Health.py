@@ -54,7 +54,7 @@ with st.spinner("Loading health…"):
             )
     except Exception:
         st.caption(
-            "pipeline_run_log not yet created — run the pipeline once (sql/11_pipeline_run_log.sql creates it)."
+            "pipeline_run_log not yet created — run the pipeline once (sql/analytics/11_pipeline_run_log.sql creates it)."
         )
 
     # Table counts

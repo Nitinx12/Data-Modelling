@@ -157,7 +157,7 @@ Data-Modelling/
 ├── orchestration/       # Dagster assets (staging → core → quality) + definitions.py
 ├── models/              # Hand-built PL/pgSQL (10) — dims/facts, SCD2, as-of LATERAL
 ├── scripts/python/      # pg_staging (Pydantic) + run_models (SCD2+log) + quality + gx + main
-├── sql/                 # 00 bootstrap, 11_pipeline_run_log.sql, analytics/
+├── sql/analytics/       # 01-08 analyst queries, 00 bootstrap, 09/10 functions, 11 run_log
 ├── tests/sql/data_quality/ # 5 loops (required_text, future_date, negative, duplicate, orphan)
 ├── gx/                  # 5 suites (duplicate_key, future_date, negative, orphan_fk, required_text)
 ├── utils/               # engine, connection, logger, validation (Pydantic)
