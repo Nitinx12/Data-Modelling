@@ -47,6 +47,7 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 - Pipeline observability (`core.pipeline_run_log` via `sql/11_pipeline_run_log.sql`, instrumented `run_models.py` + `run_data_quality_loops.py` + `gx_run.py` per-model/stage logging, surfaced in `dashboard/pages/5_Pipeline_Health.py`).
 - Ingest-time validation (`utils/validation.py` Pydantic per-collection models + `staging.quarantine_log`, validated in `pg_staging.py` before upsert, log don't fail) — ties to `campaing_sku` drift.
 - Live hosting scaffolding (`.github/workflows/refresh.yml` nightly 06:30 UTC pipeline → `pg_dump -n core` → `$NEON_CONNECTION_STRING`, `docs/HOSTING.md` for Neon/Supabase + Streamlit Cloud, artifact upload).
+- `Batchfile.bat`: Windows entry point mirroring the Makefile for shells without make/WSL — `pipeline`, `staging`/`staging-one`, `models`/`models-only`, `quality`, `gx`, `lint`/`lint-fix`/`format`/`format-check`, `test`/`test-cov`, `analytics`, `dashboard`, `dagster`/`dagster-job`, `compose-*`, and the `scripts/powershell/*.ps1` ops scripts, with extra args passed through to the underlying script. Batch files have to stay CRLF (cmd.exe misparses LF-only ones), so `.gitattributes` gains `*.bat text eol=crlf` and `.editorconfig` a `[*.{bat,cmd}]` block. Verified: `Batchfile.bat help|lint|test|format-check|pipeline` all exit 0.
 
 ### Changed
 - `gx/README.md` and `docs/scripts.md`: document `gx_run.py` (how the runner resolves placeholders, what gets skipped, exit codes) and the expanded `main.py` stage list.

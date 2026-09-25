@@ -136,6 +136,14 @@ make dagster-dev        # http://localhost:3000  (asset graph)
 make dashboard          # http://localhost:8501 (needs [postgres] secrets or POSTGRES_* env)
 ```
 
+Windows, without make/WSL:
+
+```bat
+Batchfile.bat help          # every target, mirrored from the Makefile
+Batchfile.bat pipeline      # staging → models → quality → GX
+Batchfile.bat lint          # also: format-check, test, quality, gx, health-check
+```
+
 `make help` lists all 30+ targets (`compose-*`, `dashboard`, `health-check --deep`, `logs-summary`, `distclean`).
 
 ---
@@ -153,6 +161,7 @@ Data-Modelling/
 ├── tests/sql/data_quality/ # 5 loops (required_text, future_date, negative, duplicate, orphan)
 ├── gx/                  # 5 suites (duplicate_key, future_date, negative, orphan_fk, required_text)
 ├── utils/               # engine, connection, logger, validation (Pydantic)
+├── Batchfile.bat        # Windows entry point mirroring the Makefile (no make/WSL)
 └── Makefile             # production-grade (compose/dashboard/dagster)
 ```
 

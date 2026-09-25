@@ -22,3 +22,6 @@ indent_size = 2
 
 [*.ps1]
 indent_size = 4
+
+[*.{bat,cmd}]
+end_of_line = crlf
