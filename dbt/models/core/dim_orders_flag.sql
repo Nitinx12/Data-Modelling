@@ -12,9 +12,9 @@ distinct_flags as (
 )
 select
     f."OrderChannel" as channel_code
-    , c."ChannelName" as channel_name
+    , c.channel_name as channel_name
     , f."Status" as status
     , f."Priority" as priority
 from distinct_flags as f
 left join {{ ref('stg_channels') }} as c
-    on c."ChannelCode" = f."OrderChannel"
+    on c.channel_id = f."OrderChannel"

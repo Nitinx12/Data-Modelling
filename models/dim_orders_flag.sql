@@ -57,12 +57,12 @@ duplicate_check AS(
 INSERT INTO core.dim_orders_flag (channel_code, channel_name, status, priority)
 SELECT
     D."OrderChannel",
-    C."ChannelName",
+    C.channel_name,
     D."Status",
     D."Priority"
 FROM duplicate_check AS D
 LEFT JOIN staging.channels AS C
-    ON D."OrderChannel" = C."ChannelCode"
+    ON D."OrderChannel" = C.channel_id
 WHERE D.rnk = 1
 ON CONFLICT (channel_code, status, priority) DO NOTHING;
 
