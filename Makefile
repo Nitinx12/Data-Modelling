@@ -229,18 +229,29 @@ compose-sh: ## Docker: shell in pipeline container
 # =====================================================================
 # dbt — lineage/docs mirror (hand-built remains pipeline)
 # =====================================================================
-dbt-deps: ## dbt: install dbt_utils package
+# dbt/profiles.yml is gitignored (credentials stay local) — materialise it from
+# the committed example so `make dbt-*` works on a fresh clone without a manual
+# copy step. The profile reads POSTGRES_* through env_var(), which `uv run` does
+# not pull from .env by itself, so the DB targets source .env in the same shell
+# as dbt (CRLF-safe; same pattern as the `analytics` target).
+$(DBT_DIR)/profiles.yml: $(DBT_DIR)/profiles.yml.example
+	cp $< $@
+
+dbt-deps: $(DBT_DIR)/profiles.yml ## dbt: install dbt_utils package
 	$(PY) dbt deps --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)
 
-dbt-build: ## dbt: build staging views → core tables (via ref)
+dbt-build: check-env $(DBT_DIR)/profiles.yml ## dbt: build staging views → core tables (via ref)
+	@if [ -f .env ]; then set -a; . <(tr -d '\r' < .env); set +a; fi; \
 	$(PY) dbt build --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR) --target $(DBT_TARGET)
 
-dbt-test: ## dbt: test (not_null/unique/relationships, mirrors loops 1,3,5)
+dbt-test: check-env $(DBT_DIR)/profiles.yml ## dbt: test (not_null/unique/relationships, mirrors loops 1,3,5)
+	@if [ -f .env ]; then set -a; . <(tr -d '\r' < .env); set +a; fi; \
 	$(PY) dbt test --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR) --target $(DBT_TARGET)
 
-dbt-docs: ## dbt: generate docs + serve on :8080
-	$(PY) dbt docs generate --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)
-	$(PY) dbt docs serve --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)
+dbt-docs: check-env $(DBT_DIR)/profiles.yml ## dbt: generate docs + serve on :8080
+	@if [ -f .env ]; then set -a; . <(tr -d '\r' < .env); set +a; fi; \
+	$(PY) dbt docs generate --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR) --target $(DBT_TARGET)
+	$(PY) dbt docs serve --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR) --target $(DBT_TARGET)
 
 dbt-clean: ## dbt: clean target/dbt_packages
 	rm -rf $(DBT_DIR)/target $(DBT_DIR)/dbt_packages

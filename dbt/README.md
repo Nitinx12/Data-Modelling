@@ -26,20 +26,19 @@ The custom loops in `tests/sql/data_quality/` and `gx/` remain the **second** qu
 ## Run
 
 ```bash
-cp dbt/profiles.yml.example ~/.dbt/profiles.yml   # or set POSTGRES_* env
-# install dbt deps (once)
-uv run dbt deps --project-dir dbt --profiles-dir ~/.dbt
-
-# build (creates core tables via ref lineage)
-uv run dbt build --project-dir dbt --profiles-dir ~/.dbt
-
-# tests only (framework mirror of loops 1,3,5)
-uv run dbt test --project-dir dbt --profiles-dir ~/.dbt
-
-# docs
-uv run dbt docs generate --project-dir dbt --profiles-dir ~/.dbt
-uv run dbt docs serve --project-dir dbt --profiles-dir ~/.dbt  # http://localhost:8080
+# dbt/profiles.yml is gitignored — the dbt-* targets generate it from
+# profiles.yml.example and source POSTGRES_* from .env in the same shell,
+# so there is no manual cp / export step any more.
+make dbt-deps    # install dbt_utils package (once)
+make dbt-build   # build staging views -> core tables via ref lineage
+make dbt-test    # tests only (framework mirror of loops 1,3,5)
+make dbt-docs    # generate docs + serve on :8080
 ```
+
+Schemas come from `models/*/… schema=` plus `macros/generate_schema_name.sql`,
+which keeps dbt's default `<target.schema>_<custom>` prefix from splitting the
+mirror off into `analytics_staging` / `analytics_core`. Models land in the same
+`staging` / `core` schemas the hand-built pipeline uses.
 
 With Docker:
 
@@ -54,3 +53,9 @@ docker compose run --rm pipeline uv run dbt build --project-dir dbt
 ## SCD2 note
 
 `dim_customers` is SCD2 in the hand-built model (`valid_from/to/is_current`). The dbt mirror here uses `table` materialization (recompute) for simplicity; a production SCD2 would be a dbt `snapshot` (see `snapshots/`). The hand-built version is intentionally retained to show you understand the mechanics.
+
+> **Warning:** since the macro above maps dbt into `core`, `make dbt-build`
+> rewrites `core.dim_customers` as a current-state table (`valid_from = now()`,
+> one row per customer) and **discards any SCD2 history** the hand-built load
+> has accumulated. Load the warehouse with `make models` / `make pipeline`;
+> treat `dbt build` as the lineage/docs mirror, not as a warehouse load.
