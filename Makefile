@@ -174,7 +174,7 @@ gx-strict: check-env ## GX with --strict (CI)
 # =====================================================================
 # Analytics (psql, via DATABASE_URL or .env)
 # =====================================================================
-analytics: check-env ## Apply sql/analytics/*.sql via psql
+analytics: check-env ## Apply sql/analytics/*.sql via psql (skips the 00_ bootstrap)
 	@if [ -z "$(DATABASE_URL)" ]; then \
 		if [ -f .env ]; then set -a; . <(tr -d '\r' < .env); set +a; fi; \
 		if [ -n "$$POSTGRES_HOST" ] && [ -n "$$POSTGRES_DATABASE" ] && [ -n "$$POSTGRES_USERNAME" ]; then \
@@ -184,6 +184,7 @@ analytics: check-env ## Apply sql/analytics/*.sql via psql
 	if [ ! -d "$(ANALYTICS_DIR)" ]; then echo "No such dir: $(ANALYTICS_DIR)" && exit 1; fi; \
 	for f in $(ANALYTICS_DIR)/*.sql; do \
 		[ -e "$$f" ] || continue; \
+		if [[ "$$f" == */00_* ]]; then echo "  (bootstrap skipped) $$f"; continue; fi; \
 		echo ""; echo "==================== $$f ===================="; \
 		PAGER=cat psql "$$url" -v ON_ERROR_STOP=1 --pset border=2 --pset pager=off -f "$$f" || exit 1; \
 	done

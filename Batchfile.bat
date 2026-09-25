@@ -13,7 +13,7 @@ rem Extra args are passed through, e.g.
 rem     Batchfile.bat gx --suite duplicate_key_suite --strict
 rem =====================================================================
 
-setlocal EnableExtensions
+setlocal EnableExtensions EnableDelayedExpansion
 chcp 65001 >nul
 set "PYTHONUTF8=1"
 cd /d "%~dp0"
@@ -187,10 +187,15 @@ if not exist sql\analytics (
     exit /b 1
 )
 for %%F in (sql\analytics\*.sql) do (
-    echo.
-    echo ==================== %%F ====================
-    psql "%DATABASE_URL%" -v ON_ERROR_STOP=1 --pset border=2 --pset pager=off -f "%%F"
-    if errorlevel 1 exit /b 1
+    set "NAME=%%~nF"
+    if "!NAME:~0,3!"=="00_" (
+        echo   bootstrap skipped: %%F
+    ) else (
+        echo.
+        echo ==================== %%F ====================
+        psql "%DATABASE_URL%" -v ON_ERROR_STOP=1 --pset border=2 --pset pager=off -f "%%F"
+        if errorlevel 1 exit /b 1
+    )
 )
 exit /b 0
 
@@ -305,7 +310,7 @@ echo   test            pytest (no DB needed)
 echo   test-cov        pytest with coverage
 echo.
 echo Analytics / ops
-echo   analytics       apply sql\analytics\*.sql via psql (needs DATABASE_URL)
+echo   analytics       apply sql\analytics\*.sql via psql (skips 00_ bootstrap)
 echo   dashboard       streamlit on core      http://localhost:8501
 echo   dagster         dagster UI             http://localhost:3000
 echo   dagster-job     run the full_pipeline job headless
