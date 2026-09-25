@@ -24,13 +24,13 @@ Moving to ID-joins would require either (a) the source Mongo collections to emit
 - `dim_customers` is now SCD2 (`valid_from`/`valid_to`/`is_current`, `models/dim_customers.sql:14`), so `fact_orders` must resolve **as-of** `order_date`, not just `is_current`. Fixed in `models/fact_orders.sql:172` via `LATERAL` pick: `valid_from <= order_date < valid_to`, fallback to `is_current` when no as-of range matches or `order_date` is null. This tests SCD2 understanding — a naïve SCD2 implementation forgets the as-of join.
 - No change to `staging` typos or to `dim_orders_flag`/`dim_geo` — they are already stable.
 
-In `dbt/models/core/fact_orders.sql` the same logic is mirrored via `{{ ref() }}` for lineage; both implementations keep name-joins intentionally.
+The single implementation in `models/fact_orders.sql` keeps name-joins intentionally; the guard rails above are what make them safe.
 
 ## Consequences
 
 - **Positive:** Pipeline stays compatible with current Mongo extracts (no source change). Collisions are no longer silent — they are collapsed deterministically and guarded by `DISTINCT ON`. SCD2 history is now honored per order date, which was the real correctness gap.
 - **Negative:** Name stability risk remains — renaming a customer in Mongo will orphan its old facts until a mapping table exists. If the source later emits `CustomerID`/`ProductCode` in `orders`/`order_line_items`, this ADR should be revisited and the joins switched to `customer_id`/`product_code` with the same as-of semantics.
-- **What broke when we changed it:** Switching the product join from plain `JOIN` to the `MIN`+`DISTINCT ON` exposed two product_name collisions (Kitchen M006, Audio M020) that previously produced duplicate `(order_id, line_id)` rows and relied on `MIN` accidentally not being there. Switching the customer join to `LATERAL` as-of exposed that `fact_orders` previously always used the current customer version, so historical address changes were invisible in sales-by-region analysis. Both are now visible as `or`phan checks in `dashboard/pages/5_Pipeline_Health.py` and as `relationships` tests in `dbt/models/core/schema.yml`.
+- **What broke when we changed it:** Switching the product join from plain `JOIN` to the `MIN`+`DISTINCT ON` exposed two product_name collisions (Kitchen M006, Audio M020) that previously produced duplicate `(order_id, line_id)` rows and relied on `MIN` accidentally not being there. Switching the customer join to `LATERAL` as-of exposed that `fact_orders` previously always used the current customer version, so historical address changes were invisible in sales-by-region analysis. Both are now visible as orphan checks in `dashboard/pages/5_Pipeline_Health.py`, and duplicate `(order_id, line_id)` rows would be caught by SQL loop 4 and `gx/expectations/duplicate_key_suite.yaml`.
 
 ## Alternatives considered
 

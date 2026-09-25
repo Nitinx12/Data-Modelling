@@ -51,8 +51,6 @@ dev = [
     "dagster>=1.8.0",
     "dagster-webserver>=1.8.0",
     "streamlit>=1.38",
-    "dbt-core>=1.8.0",
-    "dbt-postgres>=1.8.0",
 ]
 
 [tool.ruff.lint.per-file-ignores]

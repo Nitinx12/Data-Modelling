@@ -19,7 +19,7 @@ decision before anything changes.
 | D9 | Future dated source values are quarantined in reject tables and self healed out of the fact on later runs, rather than failing the load. |
 | D10 | `fact_inventory` unpivots a hard coded 2025 month list; extend it when 2026 columns land in staging. |
 | D11 | Keep name-joins (customer_name/product_name) with collision guards (MIN+DISTINCT ON) and SCD2 as-of (LATERAL) until source emits IDs. See ADR-001 (2026-09-19) — product_name collisions (Kitchen M006) and as-of vs current were the breakages when hardening. |
-| D12 | dbt is a lineage/docs mirror over hand-built PL/pgSQL — dbt/models use {{ ref() }} and schema.yml tests mirror loops 1,3,5; hand-built remains the pipeline. Added 2026-09-19 (dbt/README.md). |
+| D12 | dbt is dropped (2026-09-25) — the `dbt/` mirror and its deps duplicated the hand-built PL/pgSQL without matching it (simplified `table` materialization instead of SCD2 history and `ON CONFLICT` upserts), so `models/` is now the only transform layer. Load order stays enforced by the `MODEL_SEQUENCE` in `run_models.py`, lineage lives in `docs/ERD.md` / `docs/Schema.md`. Added 2026-09-19 as a lineage/docs mirror, reversed deliberately on 2026-09-25. |
 
 ## Open — needs a data owner decision
 

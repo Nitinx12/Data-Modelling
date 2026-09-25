@@ -123,16 +123,6 @@ logs/
 dags/__pycache__/
 
 # ==========================
-# dbt
-# ==========================
-target/
-dbt_packages/
-logs/
-dbt/profiles.yml
-dbt/package-lock.yml
-dbt/.user.yml
-
-# ==========================
 # Terraform (if used)
 # ==========================
 .terraform/

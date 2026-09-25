@@ -105,6 +105,7 @@ grouped under `[Unreleased]` until a release is explicitly cut.
 
 ### Removed
 - `gx/runner.py`: a stub that loaded a suite file but never validated anything (it ended by printing "wire up a Batch Request + Validation Definition in your runner"). Superseded by `scripts/python/gx_run.py`, which executes the suites end to end; the suites themselves stay in `gx/expectations/`.
+- The dbt mirror, wholesale: `dbt/` (project, `stg_*` views, core `dim_*`/`fact_*`, `schema.yml`, `macros/generate_schema_name.sql`, `packages.yml`, `profiles.yml.example`), the `make dbt-deps`/`dbt-build`/`dbt-test`/`dbt-docs`/`dbt-clean`/`pipeline-dbt` targets and the `DBT_DIR`/`DBT_TARGET` variables, `dbt-core` + `dbt-postgres` from the dev dependency group (and `uv.lock`), the dbt `.gitignore` block, and every dbt mention in `README.md`, `scripts/python/main.py`, `docs/ADR-001-name-joins-vs-stable-ids.md`, and `docs/DECISIONS.md` (D12 reversed). The mirror duplicated `models/` with simplified logic — `table` recompute instead of SCD2 history, no `ON CONFLICT` upserts — and `make dbt-build` wrote into the same `core` schemas, so it risked clobbering warehouse data while contributing nothing the SQL loops and GX did not already check. Lineage now lives in `docs/ERD.md` / `docs/Schema.md` and load order in `run_models.py`'s `MODEL_SEQUENCE`.
 
 ---
 

@@ -6,14 +6,13 @@
 #   make pipeline              staging → models → quality → GX (via deps, recommended)
 #   make pipeline-main         same via scripts/python/main.py (explicit orchestrator)
 #   make compose-up            one-command Docker demo (postgres:16 + mongo:7 + pipeline)
-#   make dbt-build             dbt mirror: staging views → core tables + tests
 #   make dashboard             streamlit on core (requires POSTGRES_* / secrets.toml)
 #   make dagster-dev           Dagster UI on :3000 (asset DAG, dims before facts)
 #
 # Run `make help` (or just `make`) to list every target.
 #
 # Requires: uv (https://github.com/astral-sh/uv), bash, psql (analytics/health),
-#   mongosh (health), docker (compose demo), dbt (dbt/*), streamlit (dashboard/)
+#   mongosh (health), docker (compose demo), streamlit (dashboard/)
 # On Windows, run from WSL — Makefile shells to bash, *.sh need POSIX shell.
 # =====================================================================
 
@@ -36,7 +35,6 @@ ANALYTICS_DIR   := $(SQL_DIR)/analytics
 LOG_DIR         := logs
 LINT_PATHS      ?= .
 COMPOSE         ?= docker compose
-DBT_DIR         := dbt
 DASHBOARD_DIR   := dashboard
 
 COLLECTION      ?=
@@ -45,7 +43,6 @@ SUITE           ?=
 MAX_AGE_DAYS    ?= 7
 MAX_SIZE_MB     ?= 5
 DATABASE_URL    ?=
-DBT_TARGET      ?= dev
 
 # Export for sub-processes (psql, mongosh, python)
 export PYTHONUTF8 ?= 1
@@ -65,9 +62,8 @@ export UV
         security-check security-check-shellcheck \
         setup-dev \
         pipeline pipeline-continue pipeline-main pipeline-main-continue \
-        pipeline-dagster pipeline-dbt \
+        pipeline-dagster \
         compose-up compose-down compose-logs compose-ps compose-build compose-clean \
-        dbt-deps dbt-build dbt-test dbt-docs dbt-clean \
         dashboard dashboard-install dagster-dev \
         clean distclean
 
@@ -84,7 +80,6 @@ help: ## Show this help
 	@echo "Examples:"
 	@echo "  make pipeline                        # local: staging → models → quality → GX"
 	@echo "  make compose-up                      # docker: one-command demo (seeded DBs)"
-	@echo "  make dbt-build                       # dbt mirror with lineage"
 	@echo "  make dashboard                       # streamlit on core (needs DB creds)"
 
 config: ## Print resolved variables
@@ -95,19 +90,17 @@ config: ## Print resolved variables
 	@echo "MODELS_DIR      = $(MODELS_DIR)"
 	@echo "SQL_DIR         = $(SQL_DIR)"
 	@echo "ANALYTICS_DIR   = $(ANALYTICS_DIR)"
-	@echo "DBT_DIR         = $(DBT_DIR)"
 	@echo "DASHBOARD_DIR   = $(DASHBOARD_DIR)"
 	@echo "LINT_PATHS      = $(LINT_PATHS)"
 	@echo "MAX_AGE_DAYS    = $(MAX_AGE_DAYS)"
 	@echo "MAX_SIZE_MB     = $(MAX_SIZE_MB)"
 	@echo "DATABASE_URL    = $(if $(DATABASE_URL),(set),(not set))"
-	@echo "DBT_TARGET      = $(DBT_TARGET)"
 	@echo "PYTHONUTF8      = $(PYTHONUTF8)"
 
 # =====================================================================
 # Setup
 # =====================================================================
-install: ## Sync all deps via uv (frozen, dev group for pipeline+GX+dagster+dbt)
+install: ## Sync all deps via uv (frozen, dev group for pipeline+GX+dagster)
 	$(UV) sync --group dev --frozen
 
 install-all: ## Sync + install dashboard extra (if needed)
@@ -205,7 +198,7 @@ compose-up: ## Docker: postgres:16 + mongo:7 + pipeline (seeded, healthchecked)
 		$(COMPOSE) ps | grep -q "(healthy)" && break; sleep 3; done
 	$(COMPOSE) ps
 
-compose-build: ## Docker: build pipeline image (dbt+dagster+streamlit)
+compose-build: ## Docker: build pipeline image (dagster+streamlit)
 	$(COMPOSE) build pipeline
 
 compose-logs: ## Docker: follow pipeline logs
@@ -225,36 +218,6 @@ compose-pipeline: ## Docker: run pipeline inside container (make pipeline)
 
 compose-sh: ## Docker: shell in pipeline container
 	$(COMPOSE) run --rm pipeline bash
-
-# =====================================================================
-# dbt — lineage/docs mirror (hand-built remains pipeline)
-# =====================================================================
-# dbt/profiles.yml is gitignored (credentials stay local) — materialise it from
-# the committed example so `make dbt-*` works on a fresh clone without a manual
-# copy step. The profile reads POSTGRES_* through env_var(), which `uv run` does
-# not pull from .env by itself, so the DB targets source .env in the same shell
-# as dbt (CRLF-safe; same pattern as the `analytics` target).
-$(DBT_DIR)/profiles.yml: $(DBT_DIR)/profiles.yml.example
-	cp $< $@
-
-dbt-deps: $(DBT_DIR)/profiles.yml ## dbt: install dbt_utils package
-	$(PY) dbt deps --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)
-
-dbt-build: check-env $(DBT_DIR)/profiles.yml ## dbt: build staging views → core tables (via ref)
-	@if [ -f .env ]; then set -a; . <(tr -d '\r' < .env); set +a; fi; \
-	$(PY) dbt build --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR) --target $(DBT_TARGET)
-
-dbt-test: check-env $(DBT_DIR)/profiles.yml ## dbt: test (not_null/unique/relationships, mirrors loops 1,3,5)
-	@if [ -f .env ]; then set -a; . <(tr -d '\r' < .env); set +a; fi; \
-	$(PY) dbt test --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR) --target $(DBT_TARGET)
-
-dbt-docs: check-env $(DBT_DIR)/profiles.yml ## dbt: generate docs + serve on :8080
-	@if [ -f .env ]; then set -a; . <(tr -d '\r' < .env); set +a; fi; \
-	$(PY) dbt docs generate --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR) --target $(DBT_TARGET)
-	$(PY) dbt docs serve --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR) --target $(DBT_TARGET)
-
-dbt-clean: ## dbt: clean target/dbt_packages
-	rm -rf $(DBT_DIR)/target $(DBT_DIR)/dbt_packages
 
 # =====================================================================
 # Dashboard & Dagster
@@ -319,8 +282,6 @@ pipeline-main-continue: ## Via main.py --continue-on-error
 pipeline-dagster: ## Via Dagster headless job (asset DAG)
 	$(PY) dagster job execute -m orchestration.definitions --job full_pipeline
 
-pipeline-dbt: dbt-build dbt-test ## Via dbt (build + test)
-
 # =====================================================================
 # Housekeeping
 # =====================================================================
@@ -329,5 +290,5 @@ clean: ## Remove Python cache (safe)
 	find . -path ./.venv -prune -o -type d -name ".pytest_cache" -print -exec rm -rf {} + 2>/dev/null || true
 	find . -path ./.venv -prune -o -type f -name "*.pyc" -exec rm -f {} + 2>/dev/null || true
 
-distclean: clean logs-clean-force dbt-clean compose-clean ## clean + logs + dbt + docker volumes
+distclean: clean logs-clean-force compose-clean ## clean + logs + docker volumes
 	@echo "Deep clean complete."

@@ -5,7 +5,7 @@
 <h1 align="center">Data Modelling Warehouse</h1>
 
 <p align="center">
-  <b>MongoDB → PostgreSQL → dbt → Dagster → Streamlit</b><br>
+  <b>MongoDB → PostgreSQL → Dagster → Streamlit</b><br>
   <!-- An analytics-engineering warehouse — not a notebook demo. -->
 </p>
 
@@ -14,7 +14,6 @@
   <a href="https://www.postgresql.org/"><img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat&logo=postgresql&logoColor=white" alt="PostgreSQL"></a>
   <a href="https://www.mongodb.com/"><img src="https://img.shields.io/badge/MongoDB-7-47A248?style=flat&logo=mongodb&logoColor=white" alt="MongoDB"></a>
   <a href="https://dagster.io/"><img src="https://img.shields.io/badge/Dagster-1.13-4F43DD?style=flat&logo=dagster&logoColor=white" alt="Dagster"></a>
-  <a href="https://www.getdbt.com/"><img src="https://img.shields.io/badge/dbt-1.12-FF694B?style=flat&logo=dbt&logoColor=white" alt="dbt"></a>
   <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/Docker-29-2496ED?style=flat&logo=docker&logoColor=white" alt="Docker"></a>
   <a href="https://streamlit.io/"><img src="https://img.shields.io/badge/Streamlit-1.64-FF4B4B?style=flat&logo=streamlit&logoColor=white" alt="Streamlit"></a>
   <a href="https://github.com/features/actions"><img src="https://img.shields.io/badge/CI-passing-2088FF?style=flat&logo=githubactions&logoColor=white" alt="CI"></a>
@@ -57,8 +56,6 @@ flowchart LR
     G -->|"all pass"| OK(["✓ green"])
     G -->|"any fail"| FAIL(["✗ exit 1"])
     Q -->|"any fail"| FAIL
-    C -.->|"dbt build<br/>ref() lineage"| DBT[("dbt<br/>17 models<br/>100+ tests")]
-    S -.-> DBT
     C --> DASH["Streamlit<br/>Plotly<br/>core → dashboard"]
 
     classDef src fill:#47A248,stroke:#2d6e2e,color:#fff
@@ -67,7 +64,6 @@ flowchart LR
     classDef dq fill:#D6336C,stroke:#a32653,color:#fff
     classDef ok fill:#22863A,stroke:#176f2c,color:#fff
     classDef bad fill:#CB2431,stroke:#9d1c26,color:#fff
-    classDef alt fill:#6E56CF,stroke:#4a3aa8,color:#fff
     class M src
     class S stg
     class C core
@@ -75,7 +71,6 @@ flowchart LR
     class Q,G dq
     class OK ok
     class FAIL bad
-    class DBT alt
 ```
 
 > Every arrow into `core` and beyond is a quality gate — the next layer only builds if the prior passes. Full breakdown: `docs/ARCHITECTURE.md`.
@@ -100,10 +95,9 @@ flowchart LR
 |------|--------------|
 | **Incremental** | `$gt` watermark pushdown from Mongo, `ON CONFLICT` upserts, Pydantic pre-validation → `staging.quarantine_log` (never silent) |
 | **Modeling** | Kimball bus: 5 dims (`dim_customers` SCD2 `valid_from/to/is_current`, `dim_geo` role-playing ×2, `dim_orders_flag` junk), 5 facts (transaction/accumulating/factless/periodic), `fact_orders` `LATERAL` as-of + `MIN`+`DISTINCT ON` for `Kitchen M006` collisions |
-| **Quality** | 5 SQL loops (catalog-driven, `information_schema`) + 5 GX suites (33 expectations) + `dbt` `schema.yml` (`not_null`/`unique`/`relationships`) — `DECISIONS.md:22` double-gated |
+| **Quality** | 5 SQL loops (catalog-driven, `information_schema`) + 5 GX suites (33 expectations) — `DECISIONS.md:22` double-gated |
 | **Observability** | `core.pipeline_run_log` (`run_id`, `stage`, `duration_ms`, `row_count`) written by `run_models.py:218`/`quality`/`gx`, surfaced in dashboard Health |
-| **dbt** | `dbt/` 17 staging views → 10 core tables, `{{ ref() }}` lineage, `dbt docs` graph — `dbt/README.md` (hand-built remains pipeline) |
-| **CI** | `lint` + `format-check` + `47 tests` + live `postgres:16`+`mongo:7` `make pipeline` + Dagster load + `dbt build` on every PR — `.github/workflows/ci.yml:82` |
+| **CI** | `lint` + `format-check` + `47 tests` + live `postgres:16`+`mongo:7` `make pipeline` + Dagster load on every PR — `.github/workflows/ci.yml` |
 
 ---
 
@@ -115,7 +109,6 @@ flowchart LR
 | Compute | PySpark 4.2 | `openjdk-17` for `pyspark` |
 | Warehouse | PostgreSQL 16 | `staging` → `core` → `analytics` |
 | Source | MongoDB 7 | 24 collections, incremental `$gt` |
-| Transform | dbt-core 1.12 + dbt-postgres | 17 models, 43 tests + `dbt_utils` |
 | Orchestration | Dagster 1.13 | Software-defined assets, `Definitions` |
 | Quality | Great Expectations 1.x | 5 suites, `TQDM_DISABLE=1` |
 | BI | Streamlit 1.64 + Plotly 7.0 | `dashboard/` on `core` |
@@ -139,14 +132,11 @@ make pipeline           # local: staging → models → quality → GX
 # Dagster UI
 make dagster-dev        # http://localhost:3000  (asset graph)
 
-# dbt (lineage/docs mirror)
-make dbt-deps; make dbt-build; make dbt-test; make dbt-docs  # :8080
-
 # Dashboard (reads core)
 make dashboard          # http://localhost:8501 (needs [postgres] secrets or POSTGRES_* env)
 ```
 
-`make help` lists all 30+ targets (`compose-*`, `dbt-*`, `dashboard`, `health-check --deep`, `logs-summary`, `distclean`).
+`make help` lists all 30+ targets (`compose-*`, `dashboard`, `health-check --deep`, `logs-summary`, `distclean`).
 
 ---
 
@@ -156,7 +146,6 @@ make dashboard          # http://localhost:8501 (needs [postgres] secrets or POS
 Data-Modelling/
 ├── docker/              # Dockerfile (uv + dev), postgres-init, mongo-seed
 ├── dashboard/           # Streamlit (Home + 5 pages, lib/db+charts, .streamlit/)
-├── dbt/                 # dbt_project.yml, staging sources + stg_*.sql, core dim/fact + schema.yml
 ├── orchestration/       # Dagster assets (staging → core → quality) + definitions.py
 ├── models/              # Hand-built PL/pgSQL (10) — dims/facts, SCD2, as-of LATERAL
 ├── scripts/python/      # pg_staging (Pydantic) + run_models (SCD2+log) + quality + gx + main
@@ -164,7 +153,7 @@ Data-Modelling/
 ├── tests/sql/data_quality/ # 5 loops (required_text, future_date, negative, duplicate, orphan)
 ├── gx/                  # 5 suites (duplicate_key, future_date, negative, orphan_fk, required_text)
 ├── utils/               # engine, connection, logger, validation (Pydantic)
-└── Makefile             # production-grade (compose/dbt/dashboard/dagster)
+└── Makefile             # production-grade (compose/dashboard/dagster)
 ```
 
 ---
@@ -177,7 +166,6 @@ Data-Modelling/
 | `docs/data_catlog.md` | Grain, keys, SCD2, role-playing `dim_geo` |
 | `docs/ERD.md` | ERD + bus matrix |
 | `orchestration/README.md` | Dagster asset DAG |
-| `dbt/README.md` | dbt lineage + `{{ ref() }}` |
 | `dashboard/README.md` | Dashboard schema + deploy |
 | `docs/HOSTING.md` | Neon/Supabase + Streamlit Cloud + `refresh.yml` |
 | `docs/DECISIONS.md` | `D1–D12` + `O1–O4` |

@@ -15,7 +15,6 @@ Stages (all --strict by default, so CI fails on red data):
 
 Alternatives (not run by default, see Makefile):
   - Dagster: orchestration/definitions.py (asset DAG, `make dagster-dev`)
-  - dbt:     dbt/ (lineage/docs mirror, `make dbt-build`)
 
 Usage:
     uv run python scripts/python/main.py                    # full pipeline
