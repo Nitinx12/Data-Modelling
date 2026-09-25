@@ -1,5 +1,17 @@
+import sys
+from pathlib import Path
+
 import streamlit as st
-from lib.charts import bar_chart, line_chart
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from lib.charts import (
+    bar_chart,
+    box_chart,
+    line_chart,
+    scatter_chart,
+    sunburst_chart,
+)
 from lib.db import run_query
 
 st.set_page_config(page_title="Marketing", page_icon="📣", layout="wide")
@@ -22,7 +34,14 @@ with st.spinner("Loading marketing…"):
         if not spend_trend.empty:
             st.subheader("Spend over time")
             st.plotly_chart(
-                line_chart(spend_trend, x="spend_date", y="spend", title="Daily spend"),
+                line_chart(
+                    spend_trend,
+                    x="spend_date",
+                    y="spend",
+                    title="Daily spend",
+                    fill=True,
+                    range_slider=True,
+                ),
                 use_container_width=True,
             )
             c1, c2 = st.columns(2)
@@ -55,6 +74,7 @@ with st.spinner("Loading marketing…"):
                         x="campaign_name",
                         y="spend",
                         title="Total spend by campaign",
+                        horizontal=True,
                     ),
                     use_container_width=True,
                 )
@@ -76,10 +96,73 @@ with st.spinner("Loading marketing…"):
                         x="campaign_name",
                         y="promoted_skus",
                         title="Promoted SKUs per campaign",
+                        horizontal=True,
                     ),
                     use_container_width=True,
                 )
                 st.dataframe(coverage, use_container_width=True, hide_index=True)
+
+        # Channel ▸ campaign roll-up — where the budget actually lands
+        st.subheader("Channel ▸ campaign spend roll-up")
+        sun_col, box_col = st.columns(2)
+
+        with sun_col:
+            rollup = run_query(
+                """
+                SELECT
+                    c.channel
+                    , s.campaign_name
+                    , SUM(s.spend) AS spend
+                FROM core.fact_campaign_spend s
+                JOIN core.dim_campaign c
+                    ON c.campaign_name = s.campaign_name
+                GROUP BY c.channel, s.campaign_name
+                HAVING SUM(s.spend) > 0
+                """
+            )
+            if not rollup.empty:
+                st.plotly_chart(
+                    sunburst_chart(
+                        rollup,
+                        path=["channel", "campaign_name"],
+                        values="spend",
+                        title="Spend by channel ▸ campaign ($)",
+                    ),
+                    use_container_width=True,
+                )
+
+        with box_col:
+            daily = run_query(
+                """
+                SELECT campaign_name, spend_date, spend, impressions, clicks
+                FROM core.fact_campaign_spend
+                """
+            )
+            if not daily.empty:
+                st.plotly_chart(
+                    box_chart(
+                        daily,
+                        x="campaign_name",
+                        y="spend",
+                        title="Daily spend distribution by campaign ($)",
+                    ),
+                    use_container_width=True,
+                )
+
+        st.subheader("Efficiency — impressions vs clicks (bubble = spend)")
+        if not daily.empty:
+            st.plotly_chart(
+                scatter_chart(
+                    daily,
+                    x="impressions",
+                    y="clicks",
+                    size="spend",
+                    color="campaign_name",
+                    title="Impressions vs clicks per campaign-day",
+                    hover_data=["campaign_name", "spend_date"],
+                ),
+                use_container_width=True,
+            )
 
         # Spend per promoted SKU — one CTE per fact so the join cannot fan out
         st.subheader("Spend per promoted SKU (via shared dims)")
@@ -120,4 +203,5 @@ with st.spinner("Loading marketing…"):
 
     except Exception as e:
         st.error(f"Query failed: {e}")
+        st.exception(e)
         st.stop()

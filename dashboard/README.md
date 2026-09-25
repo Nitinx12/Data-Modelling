@@ -6,12 +6,16 @@ Live view over the `core` warehouse (see `docs/data_catlog.md`). Pages map direc
 
 | Page | File | Fact | What it shows |
 |------|------|------|---------------|
-| Overview | `Home.py` | all | KPI cards + revenue, SCD2 version counts, top customers |
-| Order Fulfillment | `pages/1_Order_Fulfillment.py` | `fact_order_process` | Funnel Ordered→Paid + avg days per stage (accumulating snapshot) |
-| Sales | `pages/2_Sales.py` | `fact_orders` | Revenue trend, top products, ship-to vs bill-to (`dim_geo` ×2) |
-| Marketing | `pages/3_Marketing.py` | `fact_campaign_spend` + `fact_less_fact` | Spend by campaign, promoted-SKU coverage, spend/sku |
-| Inventory | `pages/4_Inventory.py` | `fact_inventory` | Monthly stock trend (2025-01…12) by category |
-| Pipeline Health | `pages/5_Pipeline_Health.py` | all + quarantines | Counts, SCD2 history, orphan keys, future-dated quarantines |
+| Overview | `Home.py` | all | KPI cards + revenue trend, order funnel, revenue treemap, line-value boxplot, spend bar, channel×month heatmap |
+| Order Fulfillment | `pages/1_Order_Fulfillment.py` | `fact_order_process` | Funnel Ordered→Paid, avg days per stage, cycle-time boxplot by ship mode (accumulating snapshot) |
+| Sales | `pages/2_Sales.py` | `fact_orders` | Revenue trend, product treemap, boxplot by channel, price-vs-value scatter, weekday×month heatmap, ship/bill split |
+| Marketing | `pages/3_Marketing.py` | `fact_campaign_spend` + `fact_less_fact` | Spend trend, channel▸campaign sunburst, daily-spend boxplot, impressions-vs-clicks scatter, spend/sku |
+| Inventory | `pages/4_Inventory.py` | `fact_inventory` | Monthly stock trend, latest-month table, category boxplot, product×month heatmap |
+| Pipeline Health | `pages/5_Pipeline_Health.py` | all + quarantines | Counts, stage outcome bars, SCD2 history, orphan keys, future-dated quarantines |
+
+Every chart is built by `lib/charts.py` on one shared Plotly theme and palette; `Home.py` carries a `↻ Refresh` button that clears the 10-minute query cache.
+
+If the app fails while importing `lib/`, `Home.py` prints the real exception with `st.exception` instead of Streamlit Cloud's redacted message — check `dashboard/requirements.txt` first.
 
 ## Setup — cloud Postgres for the deployed app
 
@@ -59,13 +63,18 @@ Add the URL to the top of `README.md` next to the CI badge.
 
 ```
 dashboard/
-├── Home.py
-├── pages/1_*.py … 5_*.py
+├── Home.py               # inserts dashboard/ on sys.path before importing lib
+├── pages/1_*.py … 5_*.py # same bootstrap (parents[1])
 ├── lib/db.py      # st.cache_resource engine + st.cache_data run_query
-├── lib/charts.py  # funnel/bar/line helpers
+├── lib/charts.py  # treemap/box/scatter/heatmap/sunburst/funnel/bar/line builders
 ├── .streamlit/config.toml   # theme
 ├── .streamlit/secrets.toml.example
 └── requirements.txt
 ```
+
+Every entry file bootstraps `sys.path` itself, so `from lib.…` works the same
+way locally, under `streamlit run`, on Streamlit Community Cloud, and in
+`AppTest` — the repo tracks no `__init__.py` (`.gitignore` has `**/__init__.py`),
+so `lib` only resolves from `dashboard/`.
 
 Grounded in your model: each page’s caption names its grain/pattern (transaction fact, accumulating snapshot, factless fact, periodic snapshot, role-playing dimension) — that’s what makes it yours, not a generic BI template.

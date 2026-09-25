@@ -1,4 +1,10 @@
+import sys
+from pathlib import Path
+
 import streamlit as st
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from lib.db import run_query
 
 st.set_page_config(page_title="Pipeline Health", page_icon="💚", layout="wide")
@@ -56,6 +62,49 @@ with st.spinner("Loading health…"):
         st.caption(
             "pipeline_run_log not yet created — run the pipeline once (sql/analytics/11_pipeline_run_log.sql creates it)."
         )
+
+    # Run outcome by stage — stacked pass/fail + mean duration
+    try:
+        from lib.charts import bar_chart, stacked_bar_chart
+
+        stage_stats = run_query(
+            """
+            SELECT stage
+                 , status
+                 , COUNT(*) AS runs
+                 , AVG(duration_ms)::BIGINT AS avg_ms
+            FROM core.pipeline_run_log
+            GROUP BY stage, status
+            ORDER BY stage, status
+            """
+        )
+        if not stage_stats.empty:
+            st.subheader("Run outcomes by stage")
+            left, right = st.columns(2)
+            with left:
+                st.plotly_chart(
+                    stacked_bar_chart(
+                        stage_stats,
+                        x="stage",
+                        y="runs",
+                        color="status",
+                        title="Runs by stage and status",
+                    ),
+                    use_container_width=True,
+                )
+            with right:
+                st.plotly_chart(
+                    bar_chart(
+                        stage_stats,
+                        x="stage",
+                        y="avg_ms",
+                        color="status",
+                        title="Mean duration per run (ms)",
+                    ),
+                    use_container_width=True,
+                )
+    except Exception:
+        pass
 
     # Table counts
     try:

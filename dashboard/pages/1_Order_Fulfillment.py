@@ -1,5 +1,11 @@
+import sys
+from pathlib import Path
+
 import streamlit as st
-from lib.charts import funnel_chart
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from lib.charts import box_chart, funnel_chart
 from lib.db import run_query
 
 st.set_page_config(page_title="Order Fulfillment", page_icon="🚚", layout="wide")
@@ -65,6 +71,34 @@ with st.spinner("Loading funnel…"):
         c2.metric("Avg Ship → Delivery", f"{lags.avg_ship_to_delivery or 0:.1f}")
         c3.metric("Avg Order → Invoice", f"{lags.avg_order_to_invoice or 0:.1f}")
         c4.metric("Avg Invoice → Pay", f"{lags.avg_invoice_to_pay or 0:.1f}")
+
+        # Cycle-time distribution by ship mode — where the averages hide
+        st.subheader("Cycle time by ship mode")
+        cycle = run_query(
+            """
+            SELECT ship_mode, days_order_to_ship, days_ship_to_delivery, days_invoice_to_pay
+            FROM core.fact_order_process
+            """
+        )
+        if not cycle.empty:
+            import pandas as pd
+
+            melted = cycle.melt(
+                id_vars="ship_mode",
+                var_name="stage",
+                value_name="days",
+            ).dropna(subset=["days"])
+            if not melted.empty:
+                st.plotly_chart(
+                    box_chart(
+                        melted,
+                        x="stage",
+                        y="days",
+                        color="ship_mode",
+                        title="Days per milestone by ship mode",
+                    ),
+                    use_container_width=True,
+                )
 
         # Quarantined orders (future-dated) — visibility into quality gate 3.5
         try:

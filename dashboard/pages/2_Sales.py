@@ -1,5 +1,19 @@
+import sys
+from pathlib import Path
+
 import streamlit as st
-from lib.charts import bar_chart, line_chart
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from lib.charts import (
+    bar_chart,
+    box_chart,
+    heatmap_chart,
+    line_chart,
+    scatter_chart,
+    treemap_chart,
+    wide,
+)
 from lib.db import run_query
 
 st.set_page_config(page_title="Sales", page_icon="💰", layout="wide")
@@ -28,6 +42,7 @@ with st.spinner("Loading sales…"):
                     x="order_date",
                     y="revenue",
                     title="Daily revenue (Σ line_total)",
+                    range_slider=True,
                 ),
                 use_container_width=True,
             )
@@ -56,6 +71,7 @@ with st.spinner("Loading sales…"):
                         x="product_name",
                         y="revenue",
                         title="Revenue by product",
+                        horizontal=True,
                     ),
                     use_container_width=True,
                 )
@@ -79,10 +95,118 @@ with st.spinner("Loading sales…"):
                         x="city_name",
                         y="revenue",
                         title="Revenue by ship-to city",
+                        horizontal=True,
                     ),
                     use_container_width=True,
                 )
                 st.dataframe(top_geo, use_container_width=True, hide_index=True)
+
+        # ---------------------------------------------------------------- mix
+        st.subheader("Revenue mix — hierarchy, spread and price/quantity relation")
+        mix_col, box_col = st.columns(2)
+
+        with mix_col:
+            treemap = run_query(
+                """
+                SELECT
+                    p.category
+                    , COALESCE(p.subcategory_name, 'Uncategorised') AS subcategory_name
+                    , p.product_name
+                    , SUM(f.line_total) AS revenue
+                FROM core.fact_orders f
+                JOIN core.dim_products p
+                    ON p.product_key = f.product_key
+                GROUP BY p.category, p.subcategory_name, p.product_name
+                HAVING SUM(f.line_total) > 0
+                ORDER BY revenue DESC
+                """
+            )
+            if not treemap.empty:
+                st.plotly_chart(
+                    treemap_chart(
+                        treemap,
+                        path=["category", "subcategory_name", "product_name"],
+                        values="revenue",
+                        title="Revenue — category ▸ subcategory ▸ product",
+                    ),
+                    use_container_width=True,
+                )
+
+        with box_col:
+            spread = run_query(
+                """
+                SELECT
+                    COALESCE(d.channel_name, d.channel_code::TEXT) AS channel
+                    , f.line_total
+                FROM core.fact_orders f
+                LEFT JOIN core.dim_orders_flag d
+                    ON d.flag_key = f.flag_key
+                WHERE f.line_total IS NOT NULL
+                """
+            )
+            if not spread.empty:
+                st.plotly_chart(
+                    box_chart(
+                        spread,
+                        x="channel",
+                        y="line_total",
+                        title="Line value distribution by channel",
+                    ),
+                    use_container_width=True,
+                )
+
+        price_col, heat_col = st.columns(2)
+        with price_col:
+            pricing = run_query(
+                """
+                SELECT
+                    f.unit_price
+                    , f.line_total
+                    , f.quantity
+                    , p.product_name
+                    , p.category
+                FROM core.fact_orders f
+                JOIN core.dim_products p
+                    ON p.product_key = f.product_key
+                WHERE f.unit_price IS NOT NULL
+                """
+            )
+            if not pricing.empty:
+                st.plotly_chart(
+                    scatter_chart(
+                        pricing,
+                        x="unit_price",
+                        y="line_total",
+                        size="quantity",
+                        color="category",
+                        title="Unit price vs line value (bubble = units)",
+                        hover_data=["product_name"],
+                    ),
+                    use_container_width=True,
+                )
+
+        with heat_col:
+            weekday = run_query(
+                """
+                SELECT
+                    TO_CHAR(order_date, 'YYYY-MM') AS month
+                    , TO_CHAR(order_date, 'Dy') AS weekday
+                    , SUM(line_total) AS revenue
+                FROM core.fact_orders
+                WHERE order_date IS NOT NULL
+                GROUP BY TO_CHAR(order_date, 'YYYY-MM'), TO_CHAR(order_date, 'Dy')
+                """
+            )
+            if not weekday.empty:
+                mat = wide(weekday, index="weekday", columns="month", values="revenue")
+                order = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+                mat = mat.reindex([d for d in order if d in mat.index])
+                st.plotly_chart(
+                    heatmap_chart(
+                        mat, title="Revenue — weekday × month ($)", y_title="weekday"
+                    ),
+                    use_container_width=True,
+                )
 
         # Bill-to vs ship-to divergence — where dim_geo earns its keep
         st.subheader("Ship-to vs Bill-to divergence")
@@ -122,4 +246,5 @@ with st.spinner("Loading sales…"):
 
     except Exception as e:
         st.error(f"Query failed: {e}")
+        st.exception(e)
         st.stop()
