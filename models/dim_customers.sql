@@ -117,7 +117,11 @@ DROP TABLE IF EXISTS tmp_final_customers;
 CREATE TEMP TABLE tmp_final_customers AS
 WITH merge_quries AS (
     SELECT
-        CU."CustomerID",
+        -- staging stores IDs as BIGINT; core.dim_customers.customer_id is
+        -- VARCHAR(50), and PostgreSQL has no implicit cast in WHERE/IS
+        -- DISTINCT FROM comparisons — cast once here so the close-out
+        -- UPDATE, the NOT EXISTS guard and the INSERT all agree.
+        CU."CustomerID"::VARCHAR(50) AS "CustomerID",
         CU."CustomerName",
         CU."Segment",
         CU."AccountManager",
