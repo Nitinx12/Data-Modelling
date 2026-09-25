@@ -1,0 +1,96 @@
+# Warehouse pipeline — verification commands
+# Host Docker DBs are on 5433 (postgres) and 27018 (mongo) to avoid host 5432/27017 conflict.
+# Inside Docker network use postgres:5432 and mongo:27017.
+
+# 0. Pre-flight
+make help
+make config
+make lint
+make format-check
+make test
+make test-cov
+docker compose config
+docker compose ps
+uv run ruff check .
+uv run pytest tests/python/unit -q
+
+# 1. Docker demo (one-command)
+docker compose up --build -d postgres mongo
+docker compose exec postgres psql -U user -d data_warehouse -c "\dn"
+docker compose exec mongo mongosh --quiet --eval "db.getSiblingDB('source').getCollectionNames()"
+docker compose run --rm pipeline
+docker compose logs -f pipeline
+docker compose down -v
+
+# 2. Local pipeline (against Docker DBs on 5433/27018)
+# PowerShell env for host pipeline run:
+# $env:PYTHONUTF8=1; $env:POSTGRES_HOST="127.0.0.1"; $env:POSTGRES_PORT="5433"; $env:POSTGRES_DATABASE="data_warehouse"; $env:POSTGRES_USERNAME="user"; $env:POSTGRES_PASSWORD="password"; $env:MONGO_URI="mongodb://localhost:27018"; $env:MONGO_DB="source"
+make staging
+make models
+make quality-strict
+make gx-strict
+make pipeline
+uv run python scripts/python/main.py --help-stages
+uv run python scripts/python/main.py
+uv run python scripts/python/pg_staging.py --help
+uv run python scripts/python/run_models.py --help
+
+# 3. Orchestration / dashboard
+uv run python -c "from orchestration.definitions import defs; print(len(defs.assets))"
+make dagster-dev
+make dagster-job
+make dashboard
+
+# 3b. Windows (no make/WSL) — Batchfile.bat mirrors the Makefile targets
+Batchfile.bat help
+Batchfile.bat lint
+Batchfile.bat format-check
+Batchfile.bat test
+Batchfile.bat pipeline
+Batchfile.bat health-check-deep
+Batchfile.bat dashboard
+
+# 4. Warehouse checks (after docker compose up)
+docker compose exec postgres psql -U user -d data_warehouse -c "SELECT count(*) FROM core.fact_orders;"
+docker compose exec postgres psql -U user -d data_warehouse -c "SELECT stage,model_name,status,duration_ms FROM core.pipeline_run_log ORDER BY started_at DESC LIMIT 10;"
+docker compose exec postgres psql -U user -d data_warehouse -c "SELECT count(*) FROM staging.quarantine_log;"
+
+# 5. CI / Git
+git log --oneline -7
+git status --short
+gh run list --limit 5
+
+# 6. Dashboard — Streamlit on core (local + Streamlit Cloud)
+# See dashboard/README.md and docs/HOSTING.md for full guide.
+# Local against Docker DBs (no Neon needed):
+#   PowerShell: $env:POSTGRES_HOST="127.0.0.1"; $env:POSTGRES_PORT="5433"; $env:POSTGRES_DATABASE="data_warehouse"; $env:POSTGRES_USERNAME="user"; $env:POSTGRES_PASSWORD="password"
+#   Then either:
+make dashboard
+#   or directly:
+uv run streamlit run dashboard/Home.py
+#   Opens http://localhost:8501 — uses env fallback (no secrets.toml needed for local Docker).
+
+# Local against Neon/Supabase (cloud DB for deployed dashboard):
+#   Copy example and fill with Neon creds (dashboard_reader, sslmode=require):
+#   cp dashboard/.streamlit/secrets.toml.example dashboard/.streamlit/secrets.toml
+#   # edit dashboard/.streamlit/secrets.toml [postgres] host/user/password from Neon dashboard
+#   uv run streamlit run dashboard/Home.py
+#   # Verify every page loads against Neon before deploying.
+
+# One-time Neon setup (from local machine, after a local pipeline run):
+#   pg_dump -h 127.0.0.1 -p 5433 -U user -d data_warehouse -n core --no-owner --no-privileges -f core_dump.sql
+#   psql "$NEON_CONNECTION_STRING" -f core_dump.sql
+#   psql "$NEON_CONNECTION_STRING" -c "CREATE ROLE dashboard_reader WITH LOGIN PASSWORD 'strong-password'; GRANT USAGE ON SCHEMA core TO dashboard_reader; GRANT SELECT ON ALL TABLES IN SCHEMA core TO dashboard_reader; ALTER DEFAULT PRIVILEGES IN SCHEMA core GRANT SELECT ON TABLES TO dashboard_reader;"
+
+# Deploy on Streamlit Community Cloud:
+#   1. Push dashboard/ to GitHub (ensure dashboard/.streamlit/secrets.toml is gitignored — already in .gitignore:154)
+#   2. https://share.streamlit.io → New app → repo/branch → Main file path: dashboard/Home.py
+#   3. Advanced settings → Secrets → paste [postgres] TOML (same as local secrets.toml, dashboard_reader)
+#   4. Deploy → https://your-app-name.streamlit.app — click through every page (Fulfillment, Sales, Marketing, Inventory, Health)
+#   5. Add live link to README.md top (already placeholder: README.md:12) next to CI badge
+
+# Refresh (keep hosted core fresh):
+#   Manual: re-run pg_dump/psql after each pipeline run
+#   Automatic: GitHub Actions .github/workflows/refresh.yml 06:30 UTC cron (needs NEON_CONNECTION_STRING secret) does pipeline + pg_dump → Neon + artifact
+#   Check: gh run list --workflow=refresh.yml; gh run view --log
+
