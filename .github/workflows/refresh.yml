@@ -106,7 +106,7 @@ jobs:
         run: PGPASSWORD=password pg_dump -h localhost -U user -d data_warehouse -n core --no-owner --no-privileges -f core_dump.sql
 
       - name: Restore core to Neon (if secret set)
-        if: env.NEON_CONNECTION_STRING != ''
+        if: secrets.NEON_CONNECTION_STRING != ''
         env:
           NEON_CONNECTION_STRING: ${{ secrets.NEON_CONNECTION_STRING }}
         run: |

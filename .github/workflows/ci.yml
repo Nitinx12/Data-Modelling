@@ -156,4 +156,4 @@ jobs:
         run: make pipeline
 
       - name: Dagster — definitions load check
-        run: uv run python -c "from orchestration.definitions import defs; print(f'{len(defs.assets)} assets, {len(defs.jobs)} jobs')"
+        run: uv run python -c "from orchestration.definitions import defs; print(f'{len(defs.assets)} assets, {len(defs.jobs)} jobs}')"
