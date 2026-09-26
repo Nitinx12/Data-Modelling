@@ -1,0 +1,89 @@
+---
+title: "05 Inventory Health: stock by category and ABC split"
+subtitle: "Small multiples across months of 2025 plus stockout flags"
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-fold: true
+execute:
+  warning: false
+  message: false
+---
+
+## Purpose
+
+This notebook runs the headless inventory script against the periodic
+snapshot `fact_inventory` joined to `dim_products` for category names and
+presents the result. All calculation logic lives in
+`r_analysis/scripts/05_inventory_health.R`. This document only runs it and
+charts the outcome, so the script stays the single source of truth. Render
+from the repository root with `make notebooks`. Coverage is the months of
+2025 present in the warehouse.
+
+```{r}
+#| label: setup
+#| include: false
+suppressPackageStartupMessages({
+  library(DBI)
+  library(dplyr)
+  library(ggplot2)
+  library(knitr)
+})
+helper_path <- file.path("..", "r_analysis", "scripts", "db_connect.R")
+if (!file.exists(helper_path)) {
+  helper_path <- file.path("r_analysis", "scripts", "db_connect.R")
+}
+source(helper_path)
+r_root <- dirname(dirname(helper_path))
+output_dir <- file.path(r_root, "output")
+figures_dir <- file.path(r_root, "figures")
+source(file.path(r_root, "scripts", "05_inventory_health.R"))
+con <- connect_db()
+```
+
+```{r}
+#| label: run
+run_inventory_health(con, output_dir, figures_dir)
+```
+
+## Finding: stock per category
+
+One panel per category with its own scale, so a small category trend stays
+visible next to a large one. Falling lines into year end flag possible
+stockout risk ahead. Rising lines with no matching sales story flag possible
+overstock and tied up cash.
+
+```{r}
+#| label: multiples
+knitr::include_graphics(
+  file.path(figures_dir, "inventory_health.png")
+)
+```
+
+## Finding: flags and ABC split
+
+The flag table compares second half average stock against first half
+average stock per category. A drop of thirty percent or more reads as
+toward stockout. A rise of fifty percent or more reads as toward overstock.
+The ABC split ranks products by total quantity share. Class A products own
+the first eighty percent and deserve the tightest replenishment control.
+Class C products own the tail and are candidates for review rather than
+routine restocking.
+
+```{r}
+#| label: flags
+flags <- utils::read.csv(file.path(output_dir, "inventory_flags.csv"))
+knitr::kable(flags, caption = "Category flags with half year comparison")
+abc <- utils::read.csv(file.path(output_dir, "inventory_abc.csv"))
+knitr::kable(
+  utils::head(abc, 15L)
+  , caption = "ABC ranking, top fifteen products"
+)
+```
+
+```{r}
+#| label: cleanup
+#| include: false
+DBI::dbDisconnect(con)
+```

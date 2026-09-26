@@ -1,0 +1,88 @@
+---
+title: "02 Revenue Seasonality: monthly pattern and drivers"
+subtitle: "Trend and seasonal split of order revenue plus top products"
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-fold: true
+execute:
+  warning: false
+  message: false
+---
+
+## Purpose
+
+This notebook runs the headless seasonality script against `fact_orders`
+and presents the result. All calculation logic lives in
+`r_analysis/scripts/02_revenue_seasonality.R`. This document only runs it
+and charts the outcome, so the script stays the single source of truth.
+Render from the repository root with `make notebooks`. The render needs a
+populated warehouse and the same `.env` the Python pipeline uses.
+
+```{r}
+#| label: setup
+#| include: false
+suppressPackageStartupMessages({
+  library(DBI)
+  library(dplyr)
+  library(ggplot2)
+  library(knitr)
+})
+helper_path <- file.path("..", "r_analysis", "scripts", "db_connect.R")
+if (!file.exists(helper_path)) {
+  helper_path <- file.path("r_analysis", "scripts", "db_connect.R")
+}
+source(helper_path)
+r_root <- dirname(dirname(helper_path))
+output_dir <- file.path(r_root, "output")
+figures_dir <- file.path(r_root, "figures")
+source(file.path(r_root, "scripts", "02_revenue_seasonality.R"))
+con <- connect_db()
+```
+
+```{r}
+#| label: run
+run_revenue_seasonality(con, output_dir, figures_dir)
+```
+
+## Finding: monthly revenue with trend and seasonal split
+
+The top panel is observed revenue. The trend panel shows the underlying
+direction once repeating effects are removed. The seasonal panel shows the
+repeating yearly shape. A flat seasonal panel means no real seasonal pattern
+exists and month to month moves are trend plus noise. The split needs at
+least two full yearly cycles to settle. Shorter histories report a trend
+without a seasonal panel.
+
+```{r}
+#| label: monthly
+monthly <- utils::read.csv(
+  file.path(output_dir, "revenue_seasonality_monthly.csv")
+)
+knitr::kable(monthly, caption = "Revenue per month")
+knitr::include_graphics(
+  file.path(figures_dir, "revenue_seasonality_stl.png")
+)
+```
+
+## Finding: products behind the totals
+
+Seasonality means little without knowing which products drive it. The table
+below ranks the top ten products by revenue. When one or two products own a
+large share, the seasonal shape is their shape and promo planning should
+start with them.
+
+```{r}
+#| label: drivers
+drivers <- utils::read.csv(
+  file.path(output_dir, "revenue_top_products.csv")
+)
+knitr::kable(drivers, caption = "Top ten products by revenue")
+```
+
+```{r}
+#| label: cleanup
+#| include: false
+DBI::dbDisconnect(con)
+```

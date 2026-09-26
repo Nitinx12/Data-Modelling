@@ -22,6 +22,7 @@
 
 <p align="center">
   <a href="https://data-modelling-uclgdbxwbuwhw9dtk4q9t8.streamlit.app"><img src="https://img.shields.io/badge/Live_Dashboard-→-FF4B4B?style=flat&logo=streamlit&logoColor=white" alt="Live Dashboard"></a>
+  <a href="r_analysis/report/report.pdf"><img src="https://img.shields.io/badge/R_Report-PDF-2C3E50?style=flat&logo=readthedocs&logoColor=white" alt="R Report"></a>
   <a href="https://github.com/Nitinx12/Data-Modelling"><img src="https://img.shields.io/badge/GitHub-Nitinx12-181717?style=flat&logo=github&logoColor=white" alt="GitHub"></a>
 </p>
 
@@ -178,6 +179,7 @@ Data-Modelling/
 | `dashboard/README.md` | Dashboard schema + deploy |
 | `docs/HOSTING.md` | Neon/Supabase + Streamlit Cloud + `refresh.yml` |
 | `docs/DECISIONS.md` | `D1–D12` + `O1–O4` |
+| `docs/R_ANALYSIS.md` | R analysis layer, EDA plus notebooks plus TeX report |
 | `docs/ADR-001-name-joins-vs-stable-ids.md` | Name-joins ADR (keep with guards until source emits IDs) |
 | `docs/TESTS.md` | SQL loops reference |
 | `docs/GIT_WORKFLOW.md` | Branching, commits, hooks |

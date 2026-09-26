@@ -1,0 +1,95 @@
+---
+title: "01 Customer Tenure: SCD2 version patterns"
+subtitle: "Which customers churn attributes often and how long versions live"
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-fold: true
+execute:
+  warning: false
+  message: false
+---
+
+## Purpose
+
+This notebook runs the headless tenure script against `dim_customers` and
+presents the result. All calculation logic lives in
+`r_analysis/scripts/01_customer_tenure.R`. This document only runs it and
+charts the outcome, so the script stays the single source of truth. Render
+from the repository root with `make notebooks`. The render needs a populated
+warehouse and the same `.env` the Python pipeline uses.
+
+```{r}
+#| label: setup
+#| include: false
+suppressPackageStartupMessages({
+  library(DBI)
+  library(dplyr)
+  library(ggplot2)
+  library(knitr)
+})
+helper_path <- file.path("..", "r_analysis", "scripts", "db_connect.R")
+if (!file.exists(helper_path)) {
+  helper_path <- file.path("r_analysis", "scripts", "db_connect.R")
+}
+source(helper_path)
+r_root <- dirname(dirname(helper_path))
+output_dir <- file.path(r_root, "output")
+figures_dir <- file.path(r_root, "figures")
+source(file.path(r_root, "scripts", "01_customer_tenure.R"))
+con <- connect_db()
+```
+
+```{r}
+#| label: run
+run_customer_tenure(con, output_dir, figures_dir)
+```
+
+## Finding: version counts
+
+Most customers should sit on exactly one version. A long tail of multi
+version customers points at unstable source attributes, often address or
+region churn. The table below lists the ten most versioned customers by
+business key. The chart shows the full distribution.
+
+```{r}
+#| label: versions
+tenure <- utils::read.csv(
+  file.path(output_dir, "customer_tenure_summary.csv")
+)
+knitr::kable(
+  utils::head(tenure, 10L)
+  , caption = "Most versioned customers, top ten"
+)
+knitr::include_graphics(
+  file.path(figures_dir, "customer_tenure_hist.png")
+)
+```
+
+Single version customers cover
+`r paste0(round(100 * mean(tenure$version_count == 1L), 1L), "%")`
+of the base. When that share drops over time, attribute churn is rising and
+downstream as of joins touch more history rows per customer.
+
+## Finding: version lifespan
+
+Short lived versions suggest noisy source feeds rather than real customer
+moves. Long lived versions are the stable base the business reports against.
+
+```{r}
+#| label: lifespans
+lifespan <- utils::read.csv(
+  file.path(output_dir, "customer_lifespan_summary.csv")
+)
+knitr::kable(lifespan, caption = "Version lifespan in days")
+knitr::include_graphics(
+  file.path(figures_dir, "customer_lifespan_hist.png")
+)
+```
+
+```{r}
+#| label: cleanup
+#| include: false
+DBI::dbDisconnect(con)
+```

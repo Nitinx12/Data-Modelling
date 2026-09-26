@@ -1,0 +1,97 @@
+---
+title: "06 Pipeline Health: run duration trends"
+subtitle: "Whether the pipeline slows over time and which stage costs most"
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-fold: true
+execute:
+  warning: false
+  message: false
+---
+
+## Purpose
+
+This notebook runs the headless pipeline script against
+`core.pipeline_run_log` and presents the result. All calculation logic lives
+in `r_analysis/scripts/06_pipeline_health.R`. This document only runs it and
+charts the outcome, so the script stays the single source of truth. Render
+from the repository root with `make notebooks`. When the log table does not
+exist yet, the script skips gracefully and this notebook reports that
+instead of failing.
+
+```{r}
+#| label: setup
+#| include: false
+suppressPackageStartupMessages({
+  library(DBI)
+  library(dplyr)
+  library(ggplot2)
+  library(knitr)
+})
+helper_path <- file.path("..", "r_analysis", "scripts", "db_connect.R")
+if (!file.exists(helper_path)) {
+  helper_path <- file.path("r_analysis", "scripts", "db_connect.R")
+}
+source(helper_path)
+r_root <- dirname(dirname(helper_path))
+output_dir <- file.path(r_root, "output")
+figures_dir <- file.path(r_root, "figures")
+source(file.path(r_root, "scripts", "06_pipeline_health.R"))
+con <- connect_db()
+```
+
+```{r}
+#| label: run
+run_pipeline_health(con, output_dir, figures_dir)
+```
+
+## Finding: duration trend with outliers
+
+The line tracks total run duration over time. The dashed line marks the
+outlier boundary from the interquartile rule. Points above it are unusually
+slow runs worth comparing against what changed upstream on those dates. A
+steady climb of the whole line means the pipeline itself is slowing, which
+usually traces back to data growth rather than one bad run.
+
+```{r}
+#| label: trend
+outlier_path <- file.path(output_dir, "pipeline_outliers.csv")
+if (file.exists(outlier_path)) {
+  outliers <- utils::read.csv(outlier_path)
+  if (nrow(outliers) > 0L) {
+    knitr::kable(outliers, caption = "Flagged slow runs")
+  } else {
+    cat("No runs crossed the outlier boundary.")
+  }
+  knitr::include_graphics(
+    file.path(figures_dir, "pipeline_health.png")
+  )
+} else {
+  cat("No pipeline log found, so no trend exists yet.")
+}
+```
+
+## Finding: stage cost split
+
+The stacked bar splits the most recent thirty runs into stages. The stage
+whose band grows fastest across runs is the growing cost of the pipeline.
+That is where optimization effort pays off first.
+
+```{r}
+#| label: stages
+if (file.exists(outlier_path)) {
+  knitr::include_graphics(
+    file.path(figures_dir, "pipeline_stages.png")
+  )
+} else {
+  cat("No pipeline log found, so no stage split exists yet.")
+}
+```
+
+```{r}
+#| label: cleanup
+#| include: false
+DBI::dbDisconnect(con)
+```

@@ -28,6 +28,8 @@ MAKEFLAGS += --no-builtin-rules
 UV              ?= uv
 PY              := $(UV) run
 PIP             := $(UV) pip
+RSCRIPT         ?= Rscript
+QUARTO          ?= quarto
 SCRIPTS_DIR     := scripts
 MODELS_DIR      := models
 SQL_DIR         := sql
@@ -63,8 +65,10 @@ export UV
         setup-dev \
         pipeline pipeline-continue pipeline-main pipeline-main-continue \
         pipeline-dagster \
+        pipeline-dagster \
         compose-up compose-down compose-logs compose-ps compose-build compose-clean \
         dashboard dashboard-install dagster-dev \
+        eda notebooks r-analysis r-report r-analysis-all \
         clean distclean
 
 # =====================================================================
@@ -77,10 +81,17 @@ help: ## Show this help
 	    sort | \
 	    awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-24s\033[0m %s\n", $$1, $$2}'
 	@echo ""
-	@echo "Examples:"
-	@echo "  make pipeline                        # local: staging → models → quality → GX"
-	@echo "  make compose-up                      # docker: one-command demo (seeded DBs)"
-	@echo "  make dashboard                       # streamlit on core (needs DB creds)"
+	@echo "Pipeline targets:"
+	@echo "  pipeline                  staging → models → quality → GX"
+	@echo "  compose-up                docker: one-command demo (seeded DBs)"
+	@echo "  dashboard                 streamlit on core (needs DB creds)"
+	@echo ""
+	@echo "R Analysis targets:"
+	@echo "  eda                       render R EDA notebook (00_eda_overview)"
+	@echo "  notebooks                 render all R analysis notebooks"
+	@echo "  r-analysis                run all headless R scripts"
+	@echo "  r-report                  compile TeX report to PDF"
+	@echo "  r-analysis-all            run full R analysis (EDA + scripts + report)"
 
 config: ## Print resolved variables
 	@echo "UV              = $(UV)"
@@ -282,6 +293,24 @@ pipeline-main-continue: ## Via main.py --continue-on-error
 
 pipeline-dagster: ## Via Dagster headless job (asset DAG)
 	$(PY) dagster job execute -m orchestration.definitions --job full_pipeline
+
+# =====================================================================
+# R Analysis (read-only against core, builds charts and reports)
+# =====================================================================
+eda: check-env ## Render notebooks/00_eda_overview.qmd via Quarto
+	$(QUARTO) render notebooks/00_eda_overview.qmd
+
+notebooks: check-env ## Render every notebook in notebooks/ via Quarto
+	$(QUARTO) render notebooks/
+
+r-analysis: check-env ## Run all headless R scripts (CSV + PNG, no rendering)
+	$(RSCRIPT) r_analysis/run_r_script.R all
+
+r-report: ## Compile r_analysis/report/main.tex to report.pdf (needs figures first)
+	$(RSCRIPT) -e "setwd('r_analysis/report'); tinytex::latexmk('main.tex')"
+	cp r_analysis/report/main.pdf r_analysis/report/report.pdf
+
+r-analysis-all: eda r-analysis r-report ## Full R layer: EDA render + scripts + report
 
 # =====================================================================
 # Housekeeping

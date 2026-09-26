@@ -1,0 +1,145 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+
+\geometry{a4paper, margin=1in}
+
+\title{R Analysis Report}
+\author{Data Modelling Project}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\section*{Executive Summary}
+This report presents the results of the R-based analysis layer applied to the PostgreSQL warehouse core schema. The analysis covers customer tenure, revenue seasonality, fulfillment funnel, campaign lift, inventory health, pipeline health, and geographic splits.
+
+\section{Customer Tenure (01)}
+\subsection{Overview}
+Analysis of SCD2 customer dimension revealing version count distribution and tenure spans.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\textwidth]{../figures/customer_tenure_hist.png}
+\caption{Customer Version Count Distribution}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\textwidth]{../figures/customer_lifespan_hist.png}
+\caption{Version Lifespan Distribution in Days}
+\end{figure}
+
+\subsection{Key Findings}
+Distribution of customer versions across the SCD2 dimension.
+
+\section{Revenue Seasonality (02)}
+\subsection{Overview}
+Monthly revenue patterns with STL decomposition for trend, seasonal, and residual components.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\textwidth]{../figures/revenue_seasonality_stl.png}
+\caption{Revenue STL Decomposition}
+\end{figure}
+
+\subsection{Key Findings}
+Seasonal patterns in revenue data.
+
+\section{Fulfillment Funnel (03)}
+\subsection{Overview}
+Order fulfillment conversion funnel with survival curve analysis for time-to-pay.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\textwidth]{../figures/fulfillment_funnel.png}
+\caption{Fulfillment Funnel from Ordered to Paid}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\textwidth]{../figures/pay_survival.png}
+\caption{Time to Pay Survival Curve}
+\end{figure}
+
+\subsection{Key Findings}
+Bottlenecks in the fulfillment process.
+
+\section{Campaign Lift (04)}
+\subsection{Overview}
+Spend versus revenue lift correlation across campaigns.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\textwidth]{../figures/campaign_lift.png}
+\caption{Campaign Spend Against Window Revenue}
+\end{figure}
+
+\subsection{Key Findings}
+Correlation between campaign spend and lift.
+
+\section{Inventory Health (05)}
+\subsection{Overview}
+Stock levels by category with ABC analysis.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../figures/inventory_health.png}
+\caption{Stock per Category Across 2025 Months}
+\end{figure}
+
+\subsection{Key Findings}
+Inventory health and stockout risk.
+
+\section{Pipeline Health (06)}
+\subsection{Overview}
+Pipeline run duration trends with outlier detection.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\textwidth]{../figures/pipeline_health.png}
+\caption{Run Duration Trend with Outlier Threshold}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\textwidth]{../figures/pipeline_stages.png}
+\caption{Stage Durations per Run}
+\end{figure}
+
+\subsection{Key Findings}
+Pipeline performance over time.
+
+\section{Geographic Split (07)}
+\subsection{Overview}
+Order volume by state with ship-to vs bill-to divergence analysis.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\textwidth]{../figures/geo_split.png}
+\caption{Order Lines by Region, Ship To Against Bill To}
+\end{figure}
+
+\subsection{Key Findings}
+Geographic distribution of orders.
+
+\section{Methodology}
+\subsection{Data Source}
+All analysis queries read from the \texttt{core} schema in PostgreSQL via RPostgres.
+
+\subsection{Analysis Approach}
+- EDA profiling via Quarto notebooks
+- Headless R scripts for batch analysis
+- Statistical analysis using tidyverse, survival, and forecast packages
+- Visualization via ggplot2 with consistent theme
+
+\subsection{Dependencies}
+R packages documented in \texttt{renv.lock}
+
+\end{document}

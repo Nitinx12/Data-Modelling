@@ -1,0 +1,1026 @@
+---
+title: "00 EDA Overview: core warehouse profiling"
+subtitle: "Independent read only profile of every dim and fact before targeted analysis"
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-fold: true
+execute:
+  warning: false
+  message: false
+---
+
+## Purpose
+
+This notebook profiles every table in the `core` schema before any targeted
+analysis is written, so every later notebook starts from known, checked data.
+It is independent confirmation from the R side. It does not replace the five
+PL/pgSQL quality loops. It only reads. It creates no tables, no views, no
+procedures.
+
+Render it on demand from the repository root:
+
+```bash
+make eda
+```
+
+The render needs a populated warehouse and a `.env` file with the same
+`POSTGRES_*` values the Python pipeline uses. Rendered HTML stays out of git
+by design. Rerun this notebook whenever the warehouse grain, keys, or load
+logic changes.
+
+```{r}
+#| label: setup
+#| include: false
+suppressPackageStartupMessages({
+  library(DBI)
+  library(dplyr)
+  library(tidyr)
+  library(ggplot2)
+  library(skimr)
+  library(DataExplorer)
+  library(naniar)
+  library(GGally)
+  library(lubridate)
+  library(scales)
+  library(knitr)
+})
+
+helper_path <- file.path("..", "r_analysis", "scripts", "db_connect.R")
+if (!file.exists(helper_path)) {
+  helper_path <- file.path("r_analysis", "scripts", "db_connect.R")
+}
+source(helper_path)
+
+theme_path <- file.path(dirname(helper_path), "plot_theme.R")
+source(theme_path)
+
+con <- connect_db()
+
+DIM_TABLES <- c(
+  "dim_campaign"
+  , "dim_customers"
+  , "dim_geo"
+  , "dim_orders_flag"
+  , "dim_products"
+)
+FACT_TABLES <- c(
+  "fact_campaign_spend"
+  , "fact_inventory"
+  , "fact_less_fact"
+  , "fact_order_process"
+  , "fact_orders"
+)
+SAMPLE_N <- 2000L
+```
+
+```{r}
+#| label: helpers
+#| include: false
+table_row_count <- function(con, table) {
+  sql <- paste0(
+    "SELECT COUNT(*) AS row_count FROM core.", table
+  )
+  DBI::dbGetQuery(con, sql)$row_count[[1L]]
+}
+
+table_columns <- function(con, table) {
+  sql <- paste0(
+    "SELECT "
+    , " c.column_name"
+    , " , c.data_type"
+    , " , c.is_nullable"
+    , " FROM information_schema.columns AS c"
+    , " WHERE c.table_schema = 'core'"
+    , " AND c.table_name = '", table, "'"
+    , " ORDER BY c.ordinal_position"
+  )
+  DBI::dbGetQuery(con, sql)
+}
+
+quoted_ident <- function(x) {
+  paste0('"', gsub('"', '""', x, fixed = TRUE), '"')
+}
+
+sample_table <- function(con, table, n = SAMPLE_N) {
+  cols <- table_columns(con, table)$column_name
+  col_list <- paste(vapply(cols, quoted_ident, character(1L)), collapse = " , ")
+  sql <- paste0(
+    "SELECT "
+    , col_list
+    , " FROM core.", table
+    , " ORDER BY random()"
+    , " LIMIT ", as.integer(n)
+  )
+  DBI::dbGetQuery(con, sql)
+}
+
+null_counts <- function(con, table) {
+  cols <- table_columns(con, table)$column_name
+  parts <- vapply(
+    cols
+    , function(col) {
+      paste0(
+        "COUNT(*) FILTER (WHERE "
+        , quoted_ident(col), " IS NULL) AS "
+        , quoted_ident(paste0(col, "__nulls"))
+      )
+    }
+    , character(1L)
+  )
+  sql <- paste0(
+    "SELECT COUNT(*) AS rows_checked , "
+    , paste(parts, collapse = " , ")
+    , " FROM core.", table
+  )
+  DBI::dbGetQuery(con, sql)
+}
+```
+
+## Headline: shape of the warehouse
+
+Row counts for all ten modelled tables plus the pipeline log. Detail for
+each table follows below. If every count below looks plausible and the
+verdict section at the end reports zero failures, the warehouse is ready
+for targeted analysis.
+
+```{r}
+#| label: headline-counts
+headline_tables <- c(DIM_TABLES, FACT_TABLES, "pipeline_run_log")
+headline <- tibble::tibble(
+  table_name = headline_tables
+  , row_count = vapply(
+    headline_tables
+    , function(t) {
+      if (t == "pipeline_run_log") {
+        exists <- DBI::dbGetQuery(
+          con
+          , paste0(
+            "SELECT COUNT(*) AS n FROM information_schema.tables"
+            , " WHERE table_schema = 'core' AND table_name = 'pipeline_run_log'"
+          )
+        )$n[[1L]] > 0L
+        if (!exists) {
+          return(NA_real_)
+        }
+      }
+      as.numeric(table_row_count(con, t))
+    }
+    , numeric(1L)
+  )
+)
+knitr::kable(headline, caption = "Row counts across core")
+```
+
+## Dimensions
+
+### Column inventory
+
+One row per column for every dimension: name, type, and nullability. This
+is the contract later notebooks rely on. Any drift here means the catalog
+in `docs/data_catlog.md` needs an update in the same change.
+
+```{r}
+#| label: dim-columns
+dim_inventory <- dplyr::bind_rows(lapply(
+  DIM_TABLES
+  , function(t) {
+    cols <- table_columns(con, t)
+    cols$table_name <- t
+    cols[, c("table_name", "column_name", "data_type", "is_nullable")]
+  }
+))
+knitr::kable(dim_inventory, caption = "Dimension column inventory")
+```
+
+### Skim profiles
+
+`skimr::skim()` over a random sample of each dimension. One glance at type,
+missing share, and basic stats per column. Full table scans would be slow
+on large dimensions, so the sample keeps renders fast while the aggregate
+SQL checks further below cover every row.
+
+```{r}
+#| label: dim-skim
+#| results: asis
+for (t in DIM_TABLES) {
+  cat("\n\n#### ", t, "\n\n", sep = "")
+  s <- sample_table(con, t)
+  cat(
+    knitr::kable(
+      tibble::as_tibble(skimr::skim(s))
+      , digits = 2L
+      , caption = paste("skim profile:", t)
+    )
+    , sep = "\n"
+  )
+  cat("\n")
+}
+```
+
+### Primary key and unique key checks
+
+Catalog driven duplicate check over every primary and unique constraint in
+`core`, the same definition the fourth quality loop enforces. For
+`dim_customers` this covers both the surrogate primary key and the SCD2
+business key on customer plus version start. A nonzero count here is a
+failed check.
+
+```{r}
+#| label: dim-key-checks
+key_constraints <- DBI::dbGetQuery(
+  con
+  , paste0(
+    "SELECT "
+    , " n.nspname AS schema_name"
+    , " , c.relname AS table_name"
+    , " , con.conname AS constraint_name"
+    , " , STRING_AGG(a.attname, ',' ORDER BY k.ordinality) AS columns_csv"
+    , " FROM pg_catalog.pg_constraint AS con"
+    , " JOIN pg_catalog.pg_class AS c ON c.oid = con.conrelid"
+    , " JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace"
+    , " JOIN LATERAL UNNEST(con.conkey)"
+    , " WITH ORDINALITY AS k(attnum, ordinality) ON TRUE"
+    , " JOIN pg_catalog.pg_attribute AS a"
+    , " ON a.attrelid = c.oid AND a.attnum = k.attnum"
+    , " WHERE n.nspname = 'core'"
+    , " AND c.relname IN ("
+    , paste(paste0("'", DIM_TABLES, "'"), collapse = " , ")
+    , ")"
+    , " AND con.contype IN ('p', 'u')"
+    , " GROUP BY n.nspname, c.relname, con.conname"
+    , " ORDER BY c.relname, con.conname"
+  )
+)
+
+dup_results <- dplyr::bind_rows(lapply(
+  seq_len(nrow(key_constraints))
+  , function(i) {
+    row <- key_constraints[i, ]
+    cols <- strsplit(row$columns_csv, ",", fixed = TRUE)[[1L]]
+    quoted <- vapply(cols, quoted_ident, character(1L))
+    group_list <- paste(quoted, collapse = " , ")
+    not_null <- paste(paste0(quoted, " IS NOT NULL"), collapse = " AND ")
+    sql <- paste0(
+      "SELECT COALESCE(SUM(dup_rows), 0) AS duplicate_rows FROM ("
+      , " SELECT COUNT(*) - 1 AS dup_rows"
+      , " FROM core.", row$table_name
+      , " WHERE ", not_null
+      , " GROUP BY ", group_list
+      , " HAVING COUNT(*) > 1"
+      , ") AS g"
+    )
+    n <- DBI::dbGetQuery(con, sql)$duplicate_rows[[1L]]
+    data.frame(
+      table_name = row$table_name
+      , constraint_name = row$constraint_name
+      , duplicate_rows = as.numeric(n)
+      , stringsAsFactors = FALSE
+    )
+  }
+))
+knitr::kable(dup_results, caption = "Duplicate key rows per dimension constraint")
+```
+
+### Categorical columns
+
+Distinct counts for every text column, plus a top values bar chart wherever
+cardinality is low enough to plot. High cardinality columns such as names
+and emails are counted but not charted, since a chart with hundreds of bars
+carries no insight.
+
+```{r}
+#| label: dim-categoricals
+#| results: asis
+for (t in DIM_TABLES) {
+  cat("\n\n#### ", t, "\n\n", sep = "")
+  cols <- table_columns(con, t)
+  text_cols <- cols$column_name[cols$data_type %in% c(
+    "character varying", "character", "text"
+  )]
+  summary_rows <- lapply(
+    text_cols
+    , function(col) {
+      sql <- paste0(
+        "SELECT "
+        , " COUNT(DISTINCT ", quoted_ident(col), ") AS distinct_count"
+        , " , COUNT(*) AS row_count"
+        , " FROM core.", t
+      )
+      res <- DBI::dbGetQuery(con, sql)
+      data.frame(
+        column_name = col
+        , distinct_count = as.numeric(res$distinct_count[[1L]])
+        , row_count = as.numeric(res$row_count[[1L]])
+        , stringsAsFactors = FALSE
+      )
+    }
+  )
+  summary_tbl <- dplyr::bind_rows(summary_rows)
+  cat(
+    knitr::kable(summary_tbl, caption = paste("Categorical summary:", t))
+    , sep = "\n"
+  )
+  cat("\n")
+
+  for (col in text_cols) {
+    dc <- summary_tbl$distinct_count[summary_tbl$column_name == col]
+    if (length(dc) == 1L && !is.na(dc) && dc <= 15L && dc > 0L) {
+      sql <- paste0(
+        "SELECT "
+        , quoted_ident(col), " AS value"
+        , " , COUNT(*) AS n"
+        , " FROM core.", t
+        , " GROUP BY ", quoted_ident(col)
+        , " ORDER BY COUNT(*) DESC"
+        , " LIMIT 10"
+      )
+      top_vals <- fix_int64(DBI::dbGetQuery(con, sql))
+      top_vals$value[is.na(top_vals$value)] <- "NULL"
+      p <- ggplot2::ggplot(
+        top_vals
+        , ggplot2::aes(x = stats::reorder(value, n), y = n)
+      ) +
+        ggplot2::geom_col(fill = "#3498DB") +
+        ggplot2::coord_flip() +
+        ggplot2::labs(
+          title = paste0(t, ": top values of ", col)
+          , x = col
+          , y = "Row count"
+        )
+      print(apply_plot_theme(p))
+    }
+  }
+}
+```
+
+### dim_customers SCD2 sanity
+
+The customer dimension keeps history: one open row per customer plus closed
+rows for prior values. This section counts open against closed rows, shows
+the version count distribution, and summarises version lifespan in days.
+Open rows use the current timestamp as their provisional end, so their
+spans only grow over time.
+
+```{r}
+#| label: dim-customers-scd2
+scd2_status <- DBI::dbGetQuery(
+  con
+  , paste0(
+    "SELECT "
+    , " COUNT(*) FILTER (WHERE d.is_current) AS open_rows"
+    , " , COUNT(*) FILTER (WHERE NOT d.is_current) AS closed_rows"
+    , " , COUNT(DISTINCT d.customer_id) AS distinct_customers"
+    , " FROM core.dim_customers AS d"
+  )
+)
+knitr::kable(scd2_status, caption = "SCD2 open against closed rows")
+
+scd2_versions <- fix_int64(DBI::dbGetQuery(
+  con
+  , paste0(
+    "SELECT "
+    , " d.customer_id"
+    , " , COUNT(*) AS version_count"
+    , " , MIN(d.valid_from) AS first_valid_from"
+    , " , MAX(COALESCE(d.valid_to, now())) AS last_valid_end"
+    , " FROM core.dim_customers AS d"
+    , " GROUP BY d.customer_id"
+    , " ORDER BY COUNT(*) DESC"
+  )
+))
+knitr::kable(
+  utils::head(scd2_versions, 15L)
+  , caption = "Customers with the most versions, top fifteen"
+)
+
+scd2_spans <- DBI::dbGetQuery(
+  con
+  , paste0(
+    "SELECT "
+    , " EXTRACT(EPOCH FROM (COALESCE(d.valid_to, now()) - d.valid_from)) / 86400.0"
+    , " AS lifespan_days"
+    , " , d.is_current"
+    , " FROM core.dim_customers AS d"
+  )
+)
+knitr::kable(
+  data.frame(
+    group = c("all versions", "open rows", "closed rows")
+    , min_days = c(
+      min(scd2_spans$lifespan_days, na.rm = TRUE)
+      , min(scd2_spans$lifespan_days[scd2_spans$is_current], na.rm = TRUE)
+      , min(scd2_spans$lifespan_days[!scd2_spans$is_current], na.rm = TRUE)
+    )
+    , median_days = c(
+      stats::median(scd2_spans$lifespan_days, na.rm = TRUE)
+      , stats::median(
+        scd2_spans$lifespan_days[scd2_spans$is_current], na.rm = TRUE
+      )
+      , stats::median(
+        scd2_spans$lifespan_days[!scd2_spans$is_current], na.rm = TRUE
+      )
+    )
+    , max_days = c(
+      max(scd2_spans$lifespan_days, na.rm = TRUE)
+      , max(scd2_spans$lifespan_days[scd2_spans$is_current], na.rm = TRUE)
+      , max(scd2_spans$lifespan_days[!scd2_spans$is_current], na.rm = TRUE)
+    )
+  )
+  , digits = 1L
+  , caption = "Version lifespan in days"
+)
+
+p_versions <- ggplot2::ggplot(
+  scd2_versions
+  , ggplot2::aes(x = version_count)
+) +
+  ggplot2::geom_histogram(binwidth = 1L, fill = "#3498DB", color = "#2C3E50") +
+  ggplot2::labs(
+    title = "Customer version count distribution"
+    , x = "Versions per customer"
+    , y = "Customer count"
+  )
+apply_plot_theme(p_versions)
+
+p_spans <- ggplot2::ggplot(scd2_spans, ggplot2::aes(x = lifespan_days)) +
+  ggplot2::geom_histogram(bins = 40L, fill = "#2ECC71", color = "#2C3E50") +
+  ggplot2::facet_wrap(~is_current, labeller = ggplot2::label_both) +
+  ggplot2::labs(
+    title = "Version lifespan distribution, open against closed"
+    , x = "Lifespan in days"
+    , y = "Version count"
+  )
+apply_plot_theme(p_spans)
+```
+
+## Facts
+
+### Row counts and grain checks
+
+Each fact declares one natural key in the catalog. The grain check counts
+rows that share a key value beyond the first occurrence. Any nonzero count
+means the load produced more rows per key than the grain allows, which
+would silently multiply measures in downstream joins.
+
+```{r}
+#| label: fact-grain
+grain_keys <- list(
+  fact_orders = c("order_id", "line_id")
+  , fact_order_process = c("order_id")
+  , fact_inventory = c("product_name", "period_month")
+  , fact_campaign_spend = c("campaign_name", "spend_date")
+  , fact_less_fact = c("campaign_name", "promoted_sku")
+)
+
+grain_results <- dplyr::bind_rows(lapply(
+  FACT_TABLES
+  , function(t) {
+    key_cols <- grain_keys[[t]]
+    quoted <- vapply(key_cols, quoted_ident, character(1L))
+    group_list <- paste(quoted, collapse = " , ")
+    not_null <- paste(paste0(quoted, " IS NOT NULL"), collapse = " AND ")
+    sql <- paste0(
+      "SELECT "
+      , " COUNT(*) AS row_count"
+      , " , COALESCE(SUM(dup_rows), 0) AS extra_rows"
+      , " FROM core.", t
+      , " LEFT JOIN ("
+      , " SELECT COUNT(*) - 1 AS dup_rows"
+      , " FROM core.", t
+      , " WHERE ", not_null
+      , " GROUP BY ", group_list
+      , " HAVING COUNT(*) > 1"
+      , ") AS g ON TRUE"
+    )
+    res <- DBI::dbGetQuery(con, sql)
+    data.frame(
+      table_name = t
+      , grain = paste(key_cols, collapse = " + ")
+      , row_count = as.numeric(res$row_count[[1L]])
+      , extra_rows = as.numeric(res$extra_rows[[1L]])
+      , stringsAsFactors = FALSE
+    )
+  }
+))
+knitr::kable(grain_results, caption = "Fact grain check, extra rows per key")
+```
+
+### Missing values
+
+Aggregate NULL counts per column across every row, plus a visual missing
+map over a sample for quick scanning. Identifier and key columns are
+included here because an unresolved dimension key shows up as NULL on the
+fact, and the orphan check later treats that as a failure.
+
+```{r}
+#| label: fact-missing
+#| results: asis
+for (t in FACT_TABLES) {
+  cat("\n\n#### ", t, "\n\n", sep = "")
+  nc <- null_counts(con, t)
+  rows_checked <- nc$rows_checked[[1L]]
+  long <- data.frame(
+    column_name = sub("__nulls$", "", names(nc)[-1L])
+    , null_count = as.numeric(unlist(nc[1L, -1L], use.names = FALSE))
+    , stringsAsFactors = FALSE
+  )
+  long$null_share <- long$null_count / rows_checked
+  long <- long[order(-long$null_count), ]
+  cat(
+    knitr::kable(
+      long
+      , digits = 4L
+      , caption = paste("NULL counts:", t)
+    )
+    , sep = "\n"
+  )
+  cat("\n")
+
+  s <- sample_table(con, t, n = 500L)
+  print(naniar::vis_miss(s) + ggplot2::labs(title = paste("Missing map:", t)))
+  print(DataExplorer::plot_missing(
+    s
+    , title = paste("Missing profile:", t)
+    , ggtheme = get_plot_theme()
+  ))
+}
+```
+
+### Numeric measures
+
+Min, max, mean, and median for every numeric measure, computed over all
+rows in SQL. Distribution histograms come from a sample in R. Outliers use
+the interquartile rule on the sample: values outside one and a half times
+the interquartile range past either quartile. Counts and boundary values
+are reported. No business rows are printed.
+
+```{r}
+#| label: fact-numerics
+#| results: asis
+MEASURE_COLS <- list(
+  fact_orders = c(
+    "quantity", "unit_price", "unit_cost", "discount_pct", "line_total"
+  )
+  , fact_order_process = c(
+    "amount"
+    , "days_order_to_ship"
+    , "days_ship_to_delivery"
+    , "days_order_to_invoice"
+    , "days_invoice_to_pay"
+  )
+  , fact_inventory = c("quantity")
+  , fact_campaign_spend = c("impressions", "clicks", "spend")
+  , fact_less_fact = character(0L)
+)
+
+flag_iqr <- function(x) {
+  x <- x[!is.na(x)]
+  if (length(x) < 5L) {
+    return(list(n = 0L, lower = NA_real_, upper = NA_real_, flagged = 0L))
+  }
+  q <- stats::quantile(x, probs = c(0.25, 0.75))
+  iqr <- q[[2L]] - q[[1L]]
+  lower <- q[[1L]] - 1.5 * iqr
+  upper <- q[[2L]] + 1.5 * iqr
+  list(
+    n = length(x)
+    , lower = unname(lower)
+    , upper = unname(upper)
+    , flagged = sum(x < lower | x > upper)
+  )
+}
+
+for (t in FACT_TABLES) {
+  measures <- MEASURE_COLS[[t]]
+  cat("\n\n#### ", t, "\n\n", sep = "")
+  if (length(measures) == 0L) {
+    cat("\nThis fact carries no numeric measures by design.\n\n")
+    next
+  }
+  existing <- intersect(measures, table_columns(con, t)$column_name)
+  stat_parts <- vapply(
+    existing
+    , function(col) {
+      q <- quoted_ident(col)
+      paste0(
+        "MIN(", q, ") AS ", quoted_ident(paste0(col, "__min"))
+        , " , MAX(", q, ") AS ", quoted_ident(paste0(col, "__max"))
+        , " , AVG(", q, ") AS ", quoted_ident(paste0(col, "__mean"))
+        , " , PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ", q, ")"
+        , " AS ", quoted_ident(paste0(col, "__median"))
+      )
+    }
+    , character(1L)
+  )
+  sql <- paste0("SELECT ", paste(stat_parts, collapse = " , "), " FROM core.", t)
+  stats_wide <- DBI::dbGetQuery(con, sql)
+  stats_long <- data.frame(
+    measure = existing
+    , min = vapply(
+      existing
+      , function(col) as.numeric(stats_wide[[paste0(col, "__min")]])
+      , numeric(1L)
+    )
+    , max = vapply(
+      existing
+      , function(col) as.numeric(stats_wide[[paste0(col, "__max")]])
+      , numeric(1L)
+    )
+    , mean = vapply(
+      existing
+      , function(col) as.numeric(stats_wide[[paste0(col, "__mean")]])
+      , numeric(1L)
+    )
+    , median = vapply(
+      existing
+      , function(col) as.numeric(stats_wide[[paste0(col, "__median")]])
+      , numeric(1L)
+    )
+    , stringsAsFactors = FALSE
+  )
+  rownames(stats_long) <- NULL
+  cat(
+    knitr::kable(
+      stats_long
+      , digits = 2L
+      , caption = paste("Measure summary over all rows:", t)
+    )
+    , sep = "\n"
+  )
+  cat("\n")
+
+  s <- sample_table(con, t)
+  outlier_rows <- lapply(
+    existing
+    , function(col) {
+      vals <- suppressWarnings(as.numeric(s[[col]]))
+      info <- flag_iqr(vals)
+      data.frame(
+        measure = col
+        , sample_n = info$n
+        , lower_bound = info$lower
+        , upper_bound = info$upper
+        , flagged = info$flagged
+        , stringsAsFactors = FALSE
+      )
+    }
+  )
+  cat(
+    knitr::kable(
+      dplyr::bind_rows(outlier_rows)
+      , digits = 2L
+      , caption = paste("Interquartile outlier flags in sample:", t)
+    )
+    , sep = "\n"
+  )
+  cat("\n")
+
+  for (col in existing) {
+    vals <- suppressWarnings(as.numeric(s[[col]]))
+    vals <- vals[!is.na(vals)]
+    if (length(vals) == 0L) {
+      next
+    }
+    p <- ggplot2::ggplot(
+      data.frame(value = vals)
+      , ggplot2::aes(x = value)
+    ) +
+      ggplot2::geom_histogram(bins = 40L, fill = "#9B59B6", color = "#2C3E50") +
+      ggplot2::scale_x_continuous(labels = scales::label_number()) +
+      ggplot2::labs(title = paste0(t, ": ", col), x = col, y = "Sample count")
+    print(apply_plot_theme(p))
+  }
+}
+```
+
+### Date coverage
+
+Span and distinct counts for every date column. The inventory snapshot
+should cover the months of 2025 with no gaps. Order milestones should all
+sit on or before the current date, since future dated rows are quarantined
+at load time instead of entering the facts.
+
+```{r}
+#| label: fact-dates
+date_cols <- DBI::dbGetQuery(
+  con
+  , paste0(
+    "SELECT "
+    , " c.table_name"
+    , " , c.column_name"
+    , " FROM information_schema.columns AS c"
+    , " WHERE c.table_schema = 'core'"
+    , " AND c.table_name IN ("
+    , paste(paste0("'", FACT_TABLES, "'"), collapse = " , ")
+    , ")"
+    , " AND c.data_type IN ('date', 'timestamp without time zone'"
+    , " , 'timestamp with time zone')"
+    , " ORDER BY c.table_name, c.ordinal_position"
+  )
+)
+
+date_results <- dplyr::bind_rows(lapply(
+  seq_len(nrow(date_cols))
+  , function(i) {
+    t <- date_cols$table_name[[i]]
+    col <- date_cols$column_name[[i]]
+    sql <- paste0(
+      "SELECT "
+      , " MIN(", quoted_ident(col), ") AS min_value"
+      , " , MAX(", quoted_ident(col), ") AS max_value"
+      , " , COUNT(DISTINCT ", quoted_ident(col), ") AS distinct_count"
+      , " , COUNT(*) FILTER (WHERE "
+      , quoted_ident(col), " IS NULL) AS null_count"
+      , " FROM core.", t
+    )
+    res <- DBI::dbGetQuery(con, sql)
+    data.frame(
+      table_name = t
+      , column_name = col
+      , min_value = as.character(res$min_value[[1L]])
+      , max_value = as.character(res$max_value[[1L]])
+      , distinct_count = as.numeric(res$distinct_count[[1L]])
+      , null_count = as.numeric(res$null_count[[1L]])
+      , stringsAsFactors = FALSE
+    )
+  }
+))
+knitr::kable(date_results, caption = "Date coverage per fact column")
+
+inv_gap <- DBI::dbGetQuery(
+  con
+  , paste0(
+    "SELECT "
+    , " COUNT(DISTINCT f.period_month) AS observed_months"
+    , " , (EXTRACT(YEAR FROM age(MAX(f.period_month), MIN(f.period_month))) * 12"
+    , " + EXTRACT(MONTH FROM age(MAX(f.period_month), MIN(f.period_month)))"
+    , " + 1) AS expected_months"
+    , " FROM core.fact_inventory AS f"
+  )
+)
+knitr::kable(inv_gap, caption = "Inventory month continuity, observed vs expected")
+```
+
+### Correlations
+
+Pairwise plots across numeric measures on one fact, wherever more than one
+measure exists. The sample keeps the render fast. Strong links here guide
+which drivers later notebooks should model. Weak links warn against naive
+assumptions such as spend always tracking clicks.
+
+```{r}
+#| label: fact-correlations
+#| results: asis
+for (t in FACT_TABLES) {
+  measures <- intersect(
+    MEASURE_COLS[[t]]
+    , table_columns(con, t)$column_name
+  )
+  if (length(measures) < 2L) {
+    next
+  }
+  cat("\n\n#### ", t, "\n\n", sep = "")
+  s <- sample_table(con, t, n = 800L)
+  num_df <- as.data.frame(lapply(
+    measures
+    , function(col) suppressWarnings(as.numeric(s[[col]]))
+  ))
+  names(num_df) <- measures
+  num_df <- num_df[, colSums(is.na(num_df)) < nrow(num_df), drop = FALSE]
+  if (ncol(num_df) < 2L) {
+    cat("\nFewer than two populated measures in sample.\n\n")
+    next
+  }
+  print(GGally::ggpairs(
+    num_df
+    , title = paste("Measure correlations:", t)
+    , progress = FALSE
+  ))
+}
+```
+
+## Quality cross check
+
+Lightweight mirrors of the five quality loops, scoped to `core` and fully
+read only. Each reports aggregate counts. A nonzero count is a failed
+check. Any mismatch against the loop results needs investigation before
+targeted analysis starts, since the loops gate the pipeline and this
+notebook must agree with them.
+
+```{r}
+#| label: dq-required-text
+required_text_cols <- DBI::dbGetQuery(
+  con
+  , paste0(
+    "SELECT "
+    , " c.table_name"
+    , " , c.column_name"
+    , " FROM information_schema.columns AS c"
+    , " WHERE c.table_schema = 'core'"
+    , " AND c.table_name IN ("
+    , paste(
+      paste0("'", c(DIM_TABLES, FACT_TABLES), "'")
+      , collapse = " , "
+    )
+    , ")"
+    , " AND c.is_nullable = 'NO'"
+    , " AND c.data_type IN ('character varying', 'character', 'text')"
+    , " ORDER BY c.table_name, c.ordinal_position"
+  )
+)
+required_text_results <- dplyr::bind_rows(lapply(
+  seq_len(nrow(required_text_cols))
+  , function(i) {
+    t <- required_text_cols$table_name[[i]]
+    col <- required_text_cols$column_name[[i]]
+    sql <- paste0(
+      "SELECT COUNT(*) AS failed_rows"
+      , " FROM core.", t
+      , " WHERE NULLIF(BTRIM(", quoted_ident(col), "), '') IS NULL"
+    )
+    n <- DBI::dbGetQuery(con, sql)$failed_rows[[1L]]
+    data.frame(
+      table_name = t
+      , column_name = col
+      , blank_rows = as.numeric(n)
+      , stringsAsFactors = FALSE
+    )
+  }
+))
+knitr::kable(
+  required_text_results
+  , caption = "Required text check, blank rows per column"
+)
+```
+
+```{r}
+#| label: dq-future-dates
+future_date_results <- dplyr::bind_rows(lapply(
+  seq_len(nrow(date_cols))
+  , function(i) {
+    t <- date_cols$table_name[[i]]
+    col <- date_cols$column_name[[i]]
+    sql <- paste0(
+      "SELECT COUNT(*) AS failed_rows"
+      , " FROM core.", t
+      , " WHERE ", quoted_ident(col), " > CURRENT_DATE"
+    )
+    n <- DBI::dbGetQuery(con, sql)$failed_rows[[1L]]
+    data.frame(
+      table_name = t
+      , column_name = col
+      , future_rows = as.numeric(n)
+      , stringsAsFactors = FALSE
+    )
+  }
+))
+knitr::kable(future_date_results, caption = "Future date check per date column")
+```
+
+```{r}
+#| label: dq-negative-numerics
+NEGATIVE_COLS <- list(
+  fact_orders = c("quantity", "unit_price", "unit_cost", "line_total")
+  , fact_order_process = c("amount")
+  , fact_inventory = c("quantity")
+  , fact_campaign_spend = c("impressions", "clicks", "spend")
+)
+negative_results <- dplyr::bind_rows(unlist(
+  lapply(
+    names(NEGATIVE_COLS)
+    , function(t) {
+      cols <- intersect(
+        NEGATIVE_COLS[[t]]
+        , table_columns(con, t)$column_name
+      )
+      lapply(
+        cols
+        , function(col) {
+          sql <- paste0(
+            "SELECT COUNT(*) AS failed_rows"
+            , " FROM core.", t
+            , " WHERE ", quoted_ident(col), " < 0"
+          )
+          n <- DBI::dbGetQuery(con, sql)$failed_rows[[1L]]
+          data.frame(
+            table_name = t
+            , column_name = col
+            , negative_rows = as.numeric(n)
+            , stringsAsFactors = FALSE
+          )
+        }
+      )
+    }
+  )
+  , recursive = FALSE
+))
+knitr::kable(negative_results, caption = "Negative numeric check per measure")
+```
+
+```{r}
+#| label: dq-orphan-fks
+orphan_results <- DBI::dbGetQuery(
+  con
+  , paste0(
+    "SELECT "
+    , " 'fact_orders leaves customer_key unresolved' AS check_name"
+    , " , COUNT(*) AS unresolved_rows"
+    , " FROM core.fact_orders AS f"
+    , " LEFT JOIN core.dim_customers AS d"
+    , " ON d.customer_key = f.customer_key"
+    , " WHERE f.customer_key IS NULL OR d.customer_key IS NULL"
+    , " UNION ALL "
+    , "SELECT "
+    , " 'fact_orders leaves product_key unresolved'"
+    , " , COUNT(*)"
+    , " FROM core.fact_orders AS f"
+    , " LEFT JOIN core.dim_products AS d"
+    , " ON d.product_key = f.product_key"
+    , " WHERE f.product_key IS NULL OR d.product_key IS NULL"
+    , " UNION ALL "
+    , "SELECT "
+    , " 'fact_orders leaves ship_geo_key unresolved'"
+    , " , COUNT(*)"
+    , " FROM core.fact_orders AS f"
+    , " LEFT JOIN core.dim_geo AS g"
+    , " ON g.geo_key = f.ship_geo_key"
+    , " WHERE f.ship_geo_key IS NULL OR g.geo_key IS NULL"
+    , " UNION ALL "
+    , "SELECT "
+    , " 'fact_orders leaves bill_geo_key unresolved'"
+    , " , COUNT(*)"
+    , " FROM core.fact_orders AS f"
+    , " LEFT JOIN core.dim_geo AS g"
+    , " ON g.geo_key = f.bill_geo_key"
+    , " WHERE f.bill_geo_key IS NULL OR g.geo_key IS NULL"
+    , " UNION ALL "
+    , "SELECT "
+    , " 'fact_order_process leaves customer_key unresolved'"
+    , " , COUNT(*)"
+    , " FROM core.fact_order_process AS f"
+    , " LEFT JOIN core.dim_customers AS d"
+    , " ON d.customer_key = f.customer_key"
+    , " WHERE f.customer_key IS NULL OR d.customer_key IS NULL"
+    , " UNION ALL "
+    , "SELECT "
+    , " 'fact_inventory leaves product_key unresolved'"
+    , " , COUNT(*)"
+    , " FROM core.fact_inventory AS f"
+    , " LEFT JOIN core.dim_products AS d"
+    , " ON d.product_key = f.product_key"
+    , " WHERE f.product_key IS NULL OR d.product_key IS NULL"
+    , " UNION ALL "
+    , "SELECT "
+    , " 'fact_campaign_spend leaves campaign_key unresolved'"
+    , " , COUNT(*)"
+    , " FROM core.fact_campaign_spend AS f"
+    , " LEFT JOIN core.dim_campaign AS d"
+    , " ON d.campaign_key = f.campaign_key"
+    , " WHERE f.campaign_key IS NULL OR d.campaign_key IS NULL"
+  )
+)
+knitr::kable(orphan_results, caption = "Unresolved foreign keys, NULL counts as unresolved")
+```
+
+## Verdict
+
+```{r}
+#| label: verdict
+failures <- sum(
+  sum(dup_results$duplicate_rows, na.rm = TRUE)
+  , sum(grain_results$extra_rows, na.rm = TRUE)
+  , sum(required_text_results$blank_rows, na.rm = TRUE)
+  , sum(future_date_results$future_rows, na.rm = TRUE)
+  , sum(negative_results$negative_rows, na.rm = TRUE)
+  , sum(orphan_results$unresolved_rows, na.rm = TRUE)
+)
+cat("Tables profiled:", length(c(DIM_TABLES, FACT_TABLES)), "\n")
+cat("Total failed rows across all cross checks:", failures, "\n")
+if (failures == 0L) {
+  cat(
+    paste0(
+      "Verdict: data is clean and ready for targeted analysis. "
+      , "Notebooks 01 through 07 may proceed from the shapes described above."
+    )
+    , "\n"
+  )
+} else {
+  cat(
+    paste0(
+      "Verdict: failures found. Compare against the five quality loops, "
+      , "resolve the mismatch, then rerun this notebook before any "
+      , "targeted analysis."
+    )
+    , "\n"
+  )
+}
+```
+
+```{r}
+#| label: cleanup
+#| include: false
+DBI::dbDisconnect(con)
+sessionInfo()
+```

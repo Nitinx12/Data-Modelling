@@ -1,0 +1,83 @@
+---
+title: "07 Geo Split: ship to against bill to"
+subtitle: "Order volume by region and where the two roles diverge"
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-fold: true
+execute:
+  warning: false
+  message: false
+---
+
+## Purpose
+
+This notebook runs the headless geography script against `fact_orders`
+joined twice to the role playing `dim_geo` and presents the result. All
+calculation logic lives in `r_analysis/scripts/07_geo_split.R`. This
+document only runs it and charts the outcome, so the script stays the single
+source of truth. Render from the repository root with `make notebooks`. The
+render needs a populated warehouse and the same `.env` the Python pipeline
+uses.
+
+```{r}
+#| label: setup
+#| include: false
+suppressPackageStartupMessages({
+  library(DBI)
+  library(dplyr)
+  library(ggplot2)
+  library(knitr)
+})
+helper_path <- file.path("..", "r_analysis", "scripts", "db_connect.R")
+if (!file.exists(helper_path)) {
+  helper_path <- file.path("r_analysis", "scripts", "db_connect.R")
+}
+source(helper_path)
+r_root <- dirname(dirname(helper_path))
+output_dir <- file.path(r_root, "output")
+figures_dir <- file.path(r_root, "figures")
+source(file.path(r_root, "scripts", "07_geo_split.R"))
+con <- connect_db()
+```
+
+```{r}
+#| label: run
+run_geo_split(con, output_dir, figures_dir)
+```
+
+## Finding: volume by region per role
+
+Paired bars show ship to volume beside bill to volume for each region.
+Regions where the two bars match are locally fulfilled and locally billed.
+Regions where they part company buy in one place and receive in another,
+which matters for tax, shipping cost, and regional reporting.
+
+```{r}
+#| label: split
+geo <- utils::read.csv(file.path(output_dir, "geo_ship_bill.csv"))
+knitr::kable(geo, caption = "Order lines and revenue per region per role")
+knitr::include_graphics(
+  file.path(figures_dir, "geo_split.png")
+)
+```
+
+## Finding: divergence share
+
+The headline number is the share of order lines where ship to region differs
+from bill to region. A low share means geography can be treated as one role
+in most reporting. A high share means the two roles must stay separate or
+regional totals will mislead.
+
+```{r}
+#| label: divergence
+div <- utils::read.csv(file.path(output_dir, "geo_divergence.csv"))
+knitr::kable(div, caption = "Divergent lines and share of total")
+```
+
+```{r}
+#| label: cleanup
+#| include: false
+DBI::dbDisconnect(con)
+```

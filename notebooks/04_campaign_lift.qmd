@@ -1,0 +1,78 @@
+---
+title: "04 Campaign Lift: spend against revenue"
+subtitle: "Whether spend tracks revenue and which campaigns break the pattern"
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-fold: true
+execute:
+  warning: false
+  message: false
+---
+
+## Purpose
+
+This notebook runs the headless lift script and presents the result. Spend
+comes from `fact_campaign_spend`. Promoted products come from
+`fact_less_fact`. Revenue for those products inside the campaign window
+comes from `fact_orders`. The three facts meet only through the shared
+dimensions, never directly. All calculation logic lives in
+`r_analysis/scripts/04_campaign_lift.R`. This document only runs it and
+charts the outcome, so the script stays the single source of truth. Render
+from the repository root with `make notebooks`.
+
+```{r}
+#| label: setup
+#| include: false
+suppressPackageStartupMessages({
+  library(DBI)
+  library(dplyr)
+  library(ggplot2)
+  library(knitr)
+})
+helper_path <- file.path("..", "r_analysis", "scripts", "db_connect.R")
+if (!file.exists(helper_path)) {
+  helper_path <- file.path("r_analysis", "scripts", "db_connect.R")
+}
+source(helper_path)
+r_root <- dirname(dirname(helper_path))
+output_dir <- file.path(r_root, "output")
+figures_dir <- file.path(r_root, "figures")
+source(file.path(r_root, "scripts", "04_campaign_lift.R"))
+con <- connect_db()
+```
+
+```{r}
+#| label: run
+run_campaign_lift(con, output_dir, figures_dir)
+```
+
+## Finding: spend against window revenue
+
+Each point is one campaign. The line is a linear fit with a confidence band.
+Point size shows how many SKUs the campaign promoted. Revenue here means
+promoted SKU revenue inside the campaign window only, which is a rough
+attribution. It credits the campaign with sales that may have happened
+anyway, so read the slope as association rather than proof of cause.
+
+```{r}
+#| label: lift
+lift <- utils::read.csv(file.path(output_dir, "campaign_lift.csv"))
+knitr::kable(lift, caption = "Spend, reach, promoted SKUs, and window revenue")
+knitr::include_graphics(
+  file.path(figures_dir, "campaign_lift.png")
+)
+```
+
+Labelled points sit more than two standard residuals off the line. High
+spend with low revenue marks possible waste. Low spend with high revenue
+marks campaigns worth studying and repeating. Campaigns with no promoted
+SKU links or no window revenue fall out of the chart entirely, which itself
+is a finding about catalogue linkage quality.
+
+```{r}
+#| label: cleanup
+#| include: false
+DBI::dbDisconnect(con)
+```

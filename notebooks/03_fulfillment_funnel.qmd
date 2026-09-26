@@ -1,0 +1,90 @@
+---
+title: "03 Fulfillment Funnel: where orders stall"
+subtitle: "Stage conversion from ordered to paid plus time to pay survival"
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-fold: true
+execute:
+  warning: false
+  message: false
+---
+
+## Purpose
+
+This notebook runs the headless funnel script against the accumulating
+snapshot `fact_order_process` and presents the result. All calculation logic
+lives in `r_analysis/scripts/03_fulfillment_funnel.R`. This document only
+runs it and charts the outcome, so the script stays the single source of
+truth. Render from the repository root with `make notebooks`. The render
+needs a populated warehouse and the same `.env` the Python pipeline uses.
+
+```{r}
+#| label: setup
+#| include: false
+suppressPackageStartupMessages({
+  library(DBI)
+  library(dplyr)
+  library(ggplot2)
+  library(knitr)
+})
+helper_path <- file.path("..", "r_analysis", "scripts", "db_connect.R")
+if (!file.exists(helper_path)) {
+  helper_path <- file.path("r_analysis", "scripts", "db_connect.R")
+}
+source(helper_path)
+r_root <- dirname(dirname(helper_path))
+output_dir <- file.path(r_root, "output")
+figures_dir <- file.path(r_root, "figures")
+source(file.path(r_root, "scripts", "03_fulfillment_funnel.R"))
+con <- connect_db()
+```
+
+```{r}
+#| label: run
+run_fulfillment_funnel(con, output_dir, figures_dir)
+```
+
+## Finding: funnel from ordered to paid
+
+Each bar counts orders that reached the milestone. Labels show the raw count
+plus the share of all ordered rows. The steepest drop between two adjacent
+bars is where orders stall. A stall between invoiced and paid points at
+collection. A stall between ordered and shipped points at fulfillment
+capacity.
+
+```{r}
+#| label: funnel
+funnel <- utils::read.csv(file.path(output_dir, "funnel_counts.csv"))
+knitr::kable(funnel, caption = "Orders per milestone with conversion")
+knitr::include_graphics(
+  file.path(figures_dir, "fulfillment_funnel.png")
+)
+```
+
+## Finding: time to pay with censoring
+
+Unpaid orders still count as information: they are censored at the current
+date rather than dropped. The curve shows the share of invoiced orders still
+unpaid after each day. It falls fast at first and then flattens. The summary
+table reports the median days to pay plus the outlier boundary from the
+interquartile rule. Orders past that boundary deserve a look as possible
+collection problems rather than normal delay.
+
+```{r}
+#| label: paydelay
+ttp <- utils::read.csv(
+  file.path(output_dir, "time_to_pay_summary.csv")
+)
+knitr::kable(ttp, caption = "Time to pay summary with outlier boundary")
+knitr::include_graphics(
+  file.path(figures_dir, "pay_survival.png")
+)
+```
+
+```{r}
+#| label: cleanup
+#| include: false
+DBI::dbDisconnect(con)
+```

@@ -60,6 +60,11 @@ if /i "%CMD%"=="health-check" goto health_check
 if /i "%CMD%"=="health-check-deep" goto health_check_deep
 if /i "%CMD%"=="security-check" goto security_check
 if /i "%CMD%"=="logs-summary" goto logs_summary
+if /i "%CMD%"=="eda" goto eda
+if /i "%CMD%"=="r-analysis" goto r_analysis
+if /i "%CMD%"=="r-report" goto r_report
+if /i "%CMD%"=="r-analysis-all" goto r_analysis_all
+if /i "%CMD%"=="notebooks" goto notebooks
 if /i "%CMD%"=="clean" goto clean
 
 echo Unknown command "%CMD%".
@@ -261,6 +266,45 @@ exit /b %ERRORLEVEL%
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\powershell\monitor_logs.ps1 summary %ARGS%
 exit /b %ERRORLEVEL%
 
+rem =====================================================================
+rem R Analysis targets
+rem =====================================================================
+:eda
+call :check_env
+if errorlevel 1 exit /b 1
+quarto render notebooks\00_eda_overview.qmd %ARGS%
+exit /b %ERRORLEVEL%
+
+:r_analysis
+call :check_env
+if errorlevel 1 exit /b 1
+Rscript r_analysis/run_r_script.R all %ARGS%
+exit /b %ERRORLEVEL%
+
+:r_report
+Rscript -e "setwd('r_analysis/report'); tinytex::latexmk('main.tex')"
+if errorlevel 1 exit /b 1
+copy /Y r_analysis\report\main.pdf r_analysis\report\report.pdf
+exit /b %ERRORLEVEL%
+
+:r_analysis_all
+call :check_env
+if errorlevel 1 exit /b 1
+quarto render notebooks\00_eda_overview.qmd
+if errorlevel 1 exit /b 1
+Rscript r_analysis/run_r_script.R all
+if errorlevel 1 exit /b 1
+Rscript -e "setwd('r_analysis/report'); tinytex::latexmk('main.tex')"
+if errorlevel 1 exit /b 1
+copy /Y r_analysis\report\main.pdf r_analysis\report\report.pdf
+exit /b %ERRORLEVEL%
+
+:notebooks
+call :check_env
+if errorlevel 1 exit /b 1
+quarto render notebooks %ARGS%
+exit /b 0
+
 :clean
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-ChildItem -Recurse -Directory -Include __pycache__,.pytest_cache -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch '\\\.venv\\' } | Remove-Item -Recurse -Force"
 exit /b %ERRORLEVEL%
@@ -300,6 +344,13 @@ echo   models-only     named models          Batchfile.bat models-only --only fa
 echo   quality         5 SQL data-quality loops (add --strict)
 echo   dq              alias for quality
 echo   gx              Great Expectations suites (--suite NAME, --strict)
+echo.
+echo R analysis ^(read only against core^)
+echo   eda             quarto render notebooks\00_eda_overview.qmd
+echo   notebooks       quarto render notebooks
+echo   r-analysis      Rscript r_analysis\run_r_script.R all ^(CSV + PNG^)
+echo   r-report        compile r_analysis\report\main.tex to PDF
+echo   r-analysis-all  eda + r-analysis + r-report in order
 echo.
 echo Quality gates
 echo   lint            ruff check .
