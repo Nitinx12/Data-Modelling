@@ -39,5 +39,6 @@ jobs:
         with:
           generate_release_notes: true
           fail_on_unmatched_files: false
+          files: r_analysis/report/report.pdf
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

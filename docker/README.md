@@ -21,8 +21,8 @@ docker/
 
 | Service    | Image              | Port  | Init logic |
 |------------|--------------------|-------|------------|
-| `postgres` | `postgres:16-alpine` | 5432 | `docker/postgres-init/01_schemas.sql` → `/docker-entrypoint-initdb.d/` |
-| `mongo`    | `mongo:7`            | 27017| `docker/mongo-seed/01_seed.js` → `/docker-entrypoint-initdb.d/` |
+| `postgres` | `postgres:16-alpine` | host `5433` → `5432` | `docker/postgres-init/01_schemas.sql` → `/docker-entrypoint-initdb.d/` |
+| `mongo`    | `mongo:7`            | host `27018` → `27017`| `docker/mongo-seed/01_seed.js` → `/docker-entrypoint-initdb.d/` |
 | `pipeline` | built from `docker/Dockerfile` | — | `uv sync --frozen && make pipeline` after both DBs healthy |
 
 Health checks: `pg_isready` for Postgres, `mongosh ping` for Mongo. `pipeline` uses `depends_on: condition: service_healthy`.
@@ -56,4 +56,4 @@ docker compose run --rm pipeline uv run pytest tests/python/unit -v
 - **Idempotent**: Postgres/Mongo init scripts run only on first boot (when volumes are empty). Use `down -v` to re-seed.
 - **Live updates**: Project root is mounted into `pipeline:/app` so editing `models/*.sql` doesn't require a rebuild; Python deps do (`docker compose build pipeline`).
 - **Original bootstrap**: `sql/analytics/00_create_database_and_schemas.sql` (with `CREATE DATABASE` + `\c`) is for manual `psql` use; the container version is `docker/postgres-init/01_schemas.sql` (schemas only) to avoid `CREATE DATABASE` inside `docker-entrypoint-initdb.d`.
-- **Ports**: Both DBs are published to the host (`5432`, `27017`) so local `make pipeline` can also hit the container DBs if you point `.env` at `localhost`.
+- **Ports**: Both DBs are published to the host (`5433`, `27018`, since local `5432`/`27017` are usually taken) so local `make pipeline` can also hit the container DBs if you point `.env` at `localhost` with the mapped ports.

@@ -2,15 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
-project does not currently follow a formal version-numbering scheme — entries are
-grouped under `[Unreleased]` until a release is explicitly cut.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
+releases are tagged `v*` starting with `0.1.0` — entries accumulate under
+`[Unreleased]` until the next release is cut.
 
 **Every change made by Claude to this repository must be logged here** — see the
 "Changelog Requirement" section in `CLAUDE.md` for the exact rule. Add new lines under
 `[Unreleased]`; don't edit past entries.
 
 ## [Unreleased]
+
+## [0.1.0] - 2026-09-26
 
 ### Added
 - Professional chart set for the dashboard: `dashboard/lib/charts.py` grew `treemap_chart`, `box_chart`, `scatter_chart`, `heatmap_chart`, `sunburst_chart`, `area_chart`, `stacked_bar_chart` and a `wide()` pivot helper on one shared theme (plotly_white, one categorical + one sequential palette, fixed margins/heights). Wired into every page — Overview (revenue trend, funnel, category ▸ subcategory treemap, line-value boxplot, spend bar, channel × month heatmap), Sales (product treemap, boxplot by channel, price/value scatter, weekday × month heatmap), Marketing (channel ▸ campaign sunburst, daily-spend boxplot, impressions-vs-clicks scatter), Inventory (category boxplot, top-20 product × month heatmap), Order Fulfillment (cycle-time boxplot by ship mode), Pipeline Health (stage × status outcome bars) — 29 charts in total, plus a `↻ Refresh` button on the header that clears the 10-minute query cache.
