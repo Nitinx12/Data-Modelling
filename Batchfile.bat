@@ -321,8 +321,13 @@ if errorlevel 1 (
 exit /b 0
 
 :check_env
-if not exist .env (
-    echo Missing .env - copy .env.example and fill it in.
+if exist .env exit /b 0
+set "MISSING="
+for %%V in (POSTGRES_HOST POSTGRES_PORT POSTGRES_DATABASE POSTGRES_USERNAME POSTGRES_PASSWORD MONGO_URI MONGO_DB) do (
+    if not defined %%V set "MISSING=!MISSING! %%V"
+)
+if defined MISSING (
+    echo Missing .env - copy .env.example and fill it in. Or export:!MISSING!
     exit /b 1
 )
 exit /b 0

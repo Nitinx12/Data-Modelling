@@ -118,8 +118,16 @@ install-all: ## Sync + install dashboard extra (if needed)
 	$(UV) sync --group dev --frozen
 	$(UV) pip install -r $(DASHBOARD_DIR)/requirements.txt || true
 
-check-env: ## Verify .env exists before DB-related targets
-	@test -f .env || (echo "Missing .env — copy .env.example and fill it in." && exit 1)
+check-env: ## Verify DB config via .env file or environment variables
+	@if [ -f .env ]; then exit 0; fi; \
+	missing=""; \
+	for v in POSTGRES_HOST POSTGRES_PORT POSTGRES_DATABASE POSTGRES_USERNAME POSTGRES_PASSWORD MONGO_URI MONGO_DB; do \
+		if [ -z "$${!v}" ]; then missing="$$missing $$v"; fi; \
+	done; \
+	if [ -n "$$missing" ]; then \
+		echo "Missing .env — copy .env.example and fill it in (or export:$${missing} )."; \
+		exit 1; \
+	fi
 
 # =====================================================================
 # Tests & quality (no DB)
