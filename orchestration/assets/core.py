@@ -25,8 +25,21 @@ from orchestration.assets.staging import staging_all
 MODELS_DIR = PROJECT_ROOT / "models"
 
 
+def _ensure_project_root() -> None:
+    """Re-apply the project-root sys.path edit inside compute functions.
+
+    Module-level sys.path edits do not propagate to Dagster's spawned step
+    worker processes, so every compute function calls this first. PROJECT_ROOT
+    is an absolute path baked in at definition time, so it stays correct no
+    matter which cwd a worker starts from.
+    """
+    if str(PROJECT_ROOT) not in sys.path:
+        sys.path.insert(0, str(PROJECT_ROOT))
+
+
 def _run_model_sql(model_name: str, context) -> dict:
     """Execute one model SQL file via run_models logic."""
+    _ensure_project_root()
     from utils.connection import get_postgres_engine
 
     path = MODELS_DIR / model_name

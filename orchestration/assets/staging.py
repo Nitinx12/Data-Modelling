@@ -21,6 +21,18 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 
+def _ensure_project_root() -> None:
+    """Re-apply the project-root sys.path edit inside compute functions.
+
+    Module-level sys.path edits do not propagate to Dagster's spawned step
+    worker processes, so every compute function calls this first. PROJECT_ROOT
+    is an absolute path baked in at definition time, so it stays correct no
+    matter which cwd a worker starts from.
+    """
+    if str(PROJECT_ROOT) not in sys.path:
+        sys.path.insert(0, str(PROJECT_ROOT))
+
+
 @asset(group_name="staging", compute_kind="python")
 def staging_all(context) -> dict:
     """Load every Mongo collection into staging (incremental, watermarked).
@@ -28,6 +40,7 @@ def staging_all(context) -> dict:
     Wraps scripts/python/pg_staging.py `run_load` loop. Returns a summary
     dict so the Dagster UI shows row counts.
     """
+    _ensure_project_root()
     from scripts.python.pg_staging import run_load
     from utils.connection import get_mongo_db, get_postgres_engine
 
@@ -81,6 +94,7 @@ def staging_all(context) -> dict:
 def _make_collection_asset(collection: str):
     @asset(name=f"staging_{collection}", group_name="staging", compute_kind="python")
     def _asset(context) -> dict:
+        _ensure_project_root()
         from scripts.python.pg_staging import run_load
         from utils.connection import get_postgres_engine
 

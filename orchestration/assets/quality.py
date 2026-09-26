@@ -24,6 +24,21 @@ from orchestration.assets.core import (
     fact_orders,
 )
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _ensure_project_root() -> None:
+    """Re-apply the project-root sys.path edit inside compute functions.
+
+    Module-level sys.path edits do not propagate to Dagster's spawned step
+    worker processes, so every compute function calls this first. PROJECT_ROOT
+    is an absolute path baked in at definition time, so it stays correct no
+    matter which cwd a worker starts from.
+    """
+    if str(PROJECT_ROOT) not in sys.path:
+        sys.path.insert(0, str(PROJECT_ROOT))
+
+
 _ALL_CORE = [
     dim_products,
     dim_customers,
@@ -41,6 +56,7 @@ _ALL_CORE = [
 @asset(deps=_ALL_CORE, group_name="quality", compute_kind="sql")
 def sql_dq_loops(context) -> dict:
     """Run the five catalog-driven SQL loops (read-only, --strict)."""
+    _ensure_project_root()
     from scripts.python.run_data_quality_loops import (
         get_loop_files,
         run_data_quality_loops,
@@ -60,14 +76,31 @@ def sql_dq_loops(context) -> dict:
 
 @asset(deps=_ALL_CORE, group_name="quality", compute_kind="python")
 def gx_suites(context) -> dict:
-    """Run Great Expectations suites (read-only, --strict)."""
-    from scripts.python.gx_run import get_suite_files, run_gx_suites
+    """Run Great Expectations suites in a child process (read-only, --strict).
 
+    GX runs via its CLI instead of an in-worker import: importing
+    great_expectations pulls in pyspark.sql.connect, whose doctest guard
+    calls sys.exit(0) in spawned step workers whose __main__ has no
+    __file__. A real script child process always has one, so the suites run
+    exactly as `make gx-strict` does. Nonzero exit fails the asset.
+    """
+    import subprocess
+
+    _ensure_project_root()
+    from scripts.python.gx_run import get_suite_files
+
+    root = PROJECT_ROOT
     suite_files = get_suite_files()
-    context.log.info(f"Running {len(suite_files)} GX suites")
-    results, skipped = run_gx_suites(suite_files)
-    total_failed = sum(r["failed"] for r in results)
-    context.log.info(f"GX: {total_failed} failed expectations, {len(skipped)} skipped")
-    if total_failed > 0:
-        raise RuntimeError(f"{total_failed} GX expectations failed")
-    return {"suites": len(results), "failed": total_failed, "skipped": skipped}
+    cmd = [sys.executable, str(root / "scripts" / "python" / "gx_run.py"), "--strict"]
+    context.log.info(f"Running {len(suite_files)} GX suites via: {' '.join(cmd)}")
+    proc = subprocess.run(
+        cmd, cwd=str(root), capture_output=True, text=True, check=False
+    )
+    for line in proc.stdout.splitlines():
+        context.log.info(line)
+    for line in proc.stderr.splitlines():
+        context.log.warning(line)
+    if proc.returncode != 0:
+        raise RuntimeError(f"GX suites failed with exit code {proc.returncode}")
+    # --strict guarantees zero failures on a zero exit.
+    return {"suites": len(suite_files), "failed": 0, "skipped": []}
