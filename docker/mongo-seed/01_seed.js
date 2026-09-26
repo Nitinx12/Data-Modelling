@@ -72,10 +72,13 @@ db.products.insertMany([
 ]);
 
 // --- channels (dim_orders_flag) ---
+// NOTE: lowercase keys are intentional — the real source collection uses
+// channel_id/channel_name (unlike the PascalCase keys elsewhere), and the
+// model joins on exactly those names. Do not "normalize" them.
 db.channels.insertMany([
-  { _id: oid(), ChannelCode: 1, ChannelName: "Online" },
-  { _id: oid(), ChannelCode: 2, ChannelName: "Retail" },
-  { _id: oid(), ChannelCode: 3, ChannelName: "Partner" }
+  { _id: oid(), channel_id: 1, channel_name: "Online" },
+  { _id: oid(), channel_id: 2, channel_name: "Retail" },
+  { _id: oid(), channel_id: 3, channel_name: "Partner" }
 ]);
 
 // --- campaing_logs / campaing_sku (dim_campaign, fact_campaign_spend, fact_less_fact) ---
